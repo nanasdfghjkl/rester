@@ -1306,7 +1306,7 @@ public class ValidatorController{
         this.score=scoreCalculate();
 
     }
-    public ValidationResponse debugByContent(RequestContext request, String content) throws Exception {
+    public ValidationResponse debugByContent(RequestContext request, String content)  {
 
         ValidationResponse output = new ValidationResponse();
 
@@ -1625,7 +1625,7 @@ public class ValidatorController{
 
                         //构建路径必须属性散列表
                         for(Parameter p:result.getOpenAPI().getPaths().get(pathName).getParameters()){
-                            if(p.getRequired()==true){
+                            if(p.getRequired()!=null && p.getRequired()==true){
                                 String pIn=p.getIn();//属性位置
                                 String pName=p.getName();//属性名称
                                 buildPathParameterMap(pathName,pName,pIn);
@@ -1648,7 +1648,7 @@ public class ValidatorController{
                             parameters.addAll(operation.getParameters());
                             //构建路径必须属性散列表
                             for(Parameter p:operation.getParameters()){
-                                if(p.getRequired()==true){
+                                if(p.getRequired()!=null && p.getRequired()==true){
                                     String pIn=p.getIn();//属性位置
                                     String pName=p.getName();//属性名称
                                     buildPathParameterMap(pathName,pName,pIn);
@@ -1723,30 +1723,33 @@ public class ValidatorController{
 
                 if(parameters.size()!=0){//对属性进行检测
                     for(Parameter parameter:parameters){
-                        String paraName=parameter.getName().toLowerCase();
-                        if( parameter.getIn().equals("query")){//查询属性
-                            if(isPagePara(paraName)){//功能性属性
-                                this.querypara.add(paraName);
-                                setHasPagePara(true);
-                                System.out.println(paraName+" is page parameter. ");
-                            }else if(paraName.contains("version")){//版本信息
-                                this.versionInQueryPara=true;
-                                System.out.println("Query-parameter shouldn't has version parameter: "+paraName);
-                            }
-                        }else if(parameter.getIn().equals("header")){//头文件属性
-                            if(paraName.contains("version")){
-                                this.versionInHead=true;
-                            }else if(paraName.contains("key") ){
-                                this.hasKey=true;
-                            } else if(paraName.contains("token")){
-                                this.hasToken=true;
-                            } else  if(paraName.contains("authorization") ){
-                                this.hasAuthorization=true;
+                        if(parameter.getName()!=null){
+                            String paraName=parameter.getName().toLowerCase();
+                            if( parameter.getIn().equals("query")){//查询属性
+                                if(isPagePara(paraName)){//功能性属性
+                                    this.querypara.add(paraName);
+                                    setHasPagePara(true);
+                                    System.out.println(paraName+" is page parameter. ");
+                                }else if(paraName.contains("version")){//版本信息
+                                    this.versionInQueryPara=true;
+                                    System.out.println("Query-parameter shouldn't has version parameter: "+paraName);
+                                }
+                            }else if(parameter.getIn().equals("header")){//头文件属性
+                                if(paraName.contains("version")){
+                                    this.versionInHead=true;
+                                }else if(paraName.contains("key") ){
+                                    this.hasKey=true;
+                                } else if(paraName.contains("token")){
+                                    this.hasToken=true;
+                                } else  if(paraName.contains("authorization") ){
+                                    this.hasAuthorization=true;
 
-                            }else if(paraName.equals("accept")){
-                                this.hasAccept=true;
+                                }else if(paraName.equals("accept")){
+                                    this.hasAccept=true;
+                                }
                             }
                         }
+
                     }
 
                 }
@@ -1769,16 +1772,23 @@ public class ValidatorController{
         evaluations.put("endpointNum",String.valueOf(this.endpointNum));//将端点数填入评估结果
         this.score=scoreCalculate();
         // do actual JSON schema validation
-        JsonSchema schema = getSchema(isVersion2);
-        ProcessingReport report = schema.validate(spec);
-        ListProcessingReport lp = new ListProcessingReport();
-        lp.mergeWith(report);
-
-        java.util.Iterator<ProcessingMessage> it = lp.iterator();
-        while (it.hasNext()) {
-            ProcessingMessage pm = it.next();
-            output.addValidationMessage(new SchemaValidationError(pm.asJson()));
+        JsonSchema schema = null;
+        try {
+            schema = getSchema(isVersion2);
+            ProcessingReport report = schema.validate(spec);
+            ListProcessingReport lp = new ListProcessingReport();
+            lp.mergeWith(report);
+            java.util.Iterator<ProcessingMessage> it = lp.iterator();
+            while (it.hasNext()) {
+                ProcessingMessage pm = it.next();
+                output.addValidationMessage(new SchemaValidationError(pm.asJson()));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
+
+
+
 
         return output;
     }
@@ -2018,9 +2028,12 @@ public class ValidatorController{
     private void setCategory(SwaggerDeserializationResult result) {
         if(result.getSwagger().getInfo()!=null){
             Map<String, Object> extension = result.getSwagger().getInfo().getVendorExtensions();
+            String cateInfo="";
             if(extension!=null && extension.size()!=0){
-                String cateInfo = extension.get("x-apisguru-categories").toString();
-                if(cateInfo!=null){
+                if(extension.containsKey("x-apisguru-categories")){
+                    cateInfo = extension.get("x-apisguru-categories").toString();
+                }
+                if(cateInfo.length()!=0){
                     this.category=cateInfo;
                 }
             }
@@ -2040,9 +2053,13 @@ public class ValidatorController{
     private void setCategory(SwaggerParseResult result) {
         if(result.getOpenAPI().getInfo()!=null){
             Map<String, Object> extension = result.getOpenAPI().getInfo().getExtensions();
+            String cateInfo="";
             if(extension!=null && extension.size()!=0){
-                String cateInfo = extension.get("x-apisguru-categories").toString();
-                if(cateInfo!=null){
+                if(extension.containsKey("x-apisguru-categories")){
+                    cateInfo = extension.get("x-apisguru-categories").toString();
+                }
+
+                if(cateInfo.length()!=0){
                     this.category=cateInfo;
                 }
             }
@@ -2193,9 +2210,15 @@ public class ValidatorController{
     *@Author: zhouxinyu
     *@date: 2020/8/12
     */
-    private void pathEvaluate(Set paths, SwaggerDeserializationResult result) throws IOException, JWNLException {
+    private void pathEvaluate(Set paths, SwaggerDeserializationResult result)  {
         //setPathNum(paths.size());//提取路径数
-        JWNLwordnet jwnLwordnet=new JWNLwordnet();
+        System.out.println("jwnl start");
+        JWNLwordnet jwnLwordnet= null;
+        try {
+            jwnLwordnet = new JWNLwordnet();
+        } catch (JWNLException e) {
+            e.printStackTrace();
+        }
         evaluations.put("pathNum",Float.toString(getPathNum()));//向评估结果中填入路径数
         for (Iterator it = paths.iterator(); it.hasNext(); ) {
             Map<String,Object> pathResult=new HashMap<>();
@@ -2314,8 +2337,12 @@ public class ValidatorController{
             if(splitPaths.size()>=2){
                 /*WordNet wordNet=new WordNet();
                 wordNet.hasRelation(splitPaths);//检测是否具有上下文关系*/
-                if (jwnLwordnet.hasRelation(splitPaths)){
-                    this.hasContextedRelation=true;
+                try {
+                    if (jwnLwordnet!=null && jwnLwordnet.hasRelation(splitPaths)){
+                        this.hasContextedRelation=true;
+                    }
+                } catch (JWNLException e) {
+                    e.printStackTrace();
                 }
 
             }
@@ -2393,6 +2420,7 @@ public class ValidatorController{
         evaluations.put("noEndSlashRate",Float.toString(pathEvaData[6]/getPathNum()));//没有尾斜杠实现率*/
 
         /*validateResult.put("path",pathDetail);*/
+        System.out.println("end path evaluate");
     }
 
     /**
@@ -2402,9 +2430,15 @@ public class ValidatorController{
      * @throws IOException
      * @throws JWNLException
      */
-    private void pathEvaluate(Set paths, RESTModel result) throws IOException, JWNLException {
+    private void pathEvaluate(Set paths, RESTModel result)  {
         //setPathNum(paths.size());//提取路径数
-        JWNLwordnet jwnLwordnet=new JWNLwordnet();
+        System.out.println("jwnl start");
+        JWNLwordnet jwnLwordnet= null;
+        try {
+            jwnLwordnet = new JWNLwordnet();
+        } catch (JWNLException e) {
+            e.printStackTrace();
+        }
         evaluations.put("pathNum",Float.toString(getPathNum()));//向评估结果中填入路径数
         for (Iterator it = paths.iterator(); it.hasNext(); ) {
             Map<String,Object> pathResult=new HashMap<>();
@@ -2516,8 +2550,12 @@ public class ValidatorController{
             if(splitPaths.size()>=2){
                 /*WordNet wordNet=new WordNet();
                 wordNet.hasRelation(splitPaths);//检测是否具有上下文关系*/
-                if (jwnLwordnet.hasRelation(splitPaths)){
-                    this.hasContextedRelation=true;
+                try {
+                    if (jwnLwordnet!=null && jwnLwordnet.hasRelation(splitPaths)){
+                        this.hasContextedRelation=true;
+                    }
+                } catch (JWNLException e) {
+                    e.printStackTrace();
                 }
             }
 
@@ -2594,9 +2632,15 @@ public class ValidatorController{
     *@Author: zhouxinyu
     *@date: 2020/5/16
     */
-    private void pathEvaluate(Set paths, SwaggerParseResult result) throws IOException, JWNLException {
+    private void pathEvaluate(Set paths, SwaggerParseResult result)  {
         //setPathNum(paths.size());//提取路径数
-        JWNLwordnet jwnLwordnet=new JWNLwordnet();
+        System.out.println("jwnl start");
+        JWNLwordnet jwnLwordnet= null;
+        try {
+            jwnLwordnet = new JWNLwordnet();
+        } catch (JWNLException e) {
+            e.printStackTrace();
+        }
         evaluations.put("pathNum",Float.toString(getPathNum()));//向评估结果中填入路径数
         for (Iterator it = paths.iterator(); it.hasNext(); ) {
             Map<String,Object> pathResult=new HashMap<>();
@@ -2708,8 +2752,12 @@ public class ValidatorController{
             if(splitPaths.size()>=2){
                 /*WordNet wordNet=new WordNet();
                 wordNet.hasRelation(splitPaths);//检测是否具有上下文关系*/
-                if (jwnLwordnet.hasRelation(splitPaths)){
-                    this.hasContextedRelation=true;
+                try {
+                    if (jwnLwordnet!=null && jwnLwordnet.hasRelation(splitPaths)){
+                        this.hasContextedRelation=true;
+                    }
+                } catch (JWNLException e) {
+                    e.printStackTrace();
                 }
             }
 
@@ -2771,6 +2819,7 @@ public class ValidatorController{
         }
         setAvgHierarchy(this.pathEvaData[7]/(float)paths.size());//计算平均层级数
         validateResult.put("pathEvaData",getPathEvaData());
+        System.out.println("end path evaluate");
         /*validateResult.put("versionInPath",this.versionInPath);
         validateResult.put("semanticVersion",this.semanticVersion);
 
