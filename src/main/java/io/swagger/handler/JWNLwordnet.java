@@ -5,18 +5,27 @@ import net.didion.jwnl.JWNLException;
 import net.didion.jwnl.data.*;
 import net.didion.jwnl.data.list.*;
 import net.didion.jwnl.dictionary.Dictionary;
+import org.springframework.core.io.ClassPathResource;
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
 public class JWNLwordnet {
-    public JWNLwordnet() throws FileNotFoundException, JWNLException {
-        String propsFile = "D:\\安装包\\jwnl14-rc2\\jwnl14-rc2\\config\\file_properties.xml";
-        JWNL.initialize(new FileInputStream(propsFile));
+    public JWNLwordnet() throws  JWNLException {
+        ClassPathResource classPathResource = new ClassPathResource("file_properties.xml");
+        try {
+            InputStream inputStream = classPathResource.getInputStream();
+            JWNL.initialize(inputStream);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        /*String propsFile = "D:\\安装包\\jwnl14-rc2\\jwnl14-rc2\\config\\file_properties.xml";
+        JWNL.initialize(new FileInputStream(propsFile));*/
     }
 
     public static void main(String[] args) throws IOException, JWNLException {
