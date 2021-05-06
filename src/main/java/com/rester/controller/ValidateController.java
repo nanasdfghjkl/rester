@@ -110,4 +110,21 @@ public class ValidateController {
         return result;
 
     }
+
+    @PostMapping(path ="/restapi-hs")
+    public Map valiHSAPI(String category, String hsurl) {
+        ValidatorController validator = new ValidatorController();
+        validator.validateByHengSheng(hsurl);
+        Map<String, Object> result=null;
+        String categoryResult[]=null;
+        if(category!=null){
+            categoryResult= ConfigManager.getInstance().getValue(category.toUpperCase()).split(",",-1);
+            System.out.println(categoryResult);
+        }
+        result=validator.getValidateResult();
+        System.out.println("name:"+result.get("name"));
+        result.put("categoryResult",categoryResult);
+        return result;
+
+    }
 }
