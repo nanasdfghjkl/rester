@@ -204,7 +204,8 @@ public class ValidatorController{
     public void setValidateResult() {
         validateResult.put("name",this.name);
         validateResult.put("securityList",getSecurity());
-        validateResult.put("apiInServer",this.apiInServer);
+
+
 
         validateResult.put("hasCacheControl",this.hasCacheControlStatic);
         validateResult.put("hasDate",this.hasDateStatic);
@@ -226,6 +227,8 @@ public class ValidatorController{
         validateResult.put("hasAuthorization",this.hasAuthorization);
         validateResult.put("hasAccpet",this.hasAccept);
 
+        validateResult.put("apiInServer",this.apiInServer);
+        validateResult.put("versionInHost",this.versionInHost);
         validateResult.put("versionInPath",this.versionInPath);
         validateResult.put("versionInQueryPara",this.versionInQueryPara);
         validateResult.put("versionInHeader",this.versionInHead);
@@ -240,6 +243,7 @@ public class ValidatorController{
         validateResult.put("path",pathDetail);
 
         validateResult.put("category",getCategory());
+        validateResult.put("pathNum",getPathNum());
         validateResult.put("endpointNum",this.getEndpointNum());
         validateResult.put("opGET",this.getOpGet());
         validateResult.put("opPOST",this.getOpPost());
@@ -250,9 +254,10 @@ public class ValidatorController{
         validateResult.put("opOPTIONS",getOpOptions());
         validateResult.put("opTRACE",getOpTrace());
 
-        validateResult.put("hasPagePara",this.hasPagePara);
-
         validateResult.put("hasWrongStatus",this.hasWrongStatus);
+        validateResult.put("hasWrongPost",this.hasWrongPost);
+
+        validateResult.put("score",this.score);
     }
 
     public Map<String, Object> getPathDetailDynamic() {
@@ -949,15 +954,17 @@ public class ValidatorController{
      * 通过API网页检测
      * @param html
      */
-    public void validateByHengSheng(String html) throws IOException, JWNLException {
+    public void validateByHengSheng(String html){
         RESTModel model=new HSModel(html);
         validateByModel(model);
 
     }
 
-    private void validateByModel(RESTModel model) throws IOException, JWNLException {
+    private void validateByModel(RESTModel model)  {
 
-
+        this.name=model.getName();
+        //基本信息获取
+        basicInfoGet(model);
         //路径检测
         Map<String,Object> paths=model.getPaths();
         pathEvaluate(paths.keySet(),model);
@@ -1028,6 +1035,9 @@ public class ValidatorController{
                 this.hasResponseContentTypeStatic=true;
             }
         }
+        this.hasStrongCacheStatic=this.hasCacheControlStatic || this.hasDateStatic || this.hasExpiresStatic;
+        this.hasNegCacheStatic=this.hasEtagStatic || this.hasLastModifiedStatic;
+
         this.score=scoreCalculate();
         //填写输出Json
         setValidateResult();
@@ -1925,24 +1935,13 @@ public class ValidatorController{
             this.apiInServer=true;
             System.out.println(serverurl+"has api");
         }else if(m2.find()){
-            //System.out.println("version shouldn't in paths "+p);
-            //this.score=this.score-5>0?this.score-5:0;
             this.versionInHost=true;
             String version=m2.group();
-            /*int dotCount=0;
-            for(int i=0;i<version.length();i++){
-                if(version.charAt(i)=='.'){
-                    dotCount++;
-                }
-            }
-            this.dotCountInServer=dotCount;*/
             if(version.contains(".") || version.contains("alpha") || version.contains("beta") || version.contains("rc")){
                 this.semanticVersion=true;
             }
         }
-        validateResult.put("versionInHost",this.versionInHost);
-        validateResult.put("semanticVersion",this.semanticVersion);
-        validateResult.put("apiInServer",this.apiInServer);
+
     }
 
     private void pathSemanticsEvaluate(Set paths) {
@@ -1950,6 +1949,52 @@ public class ValidatorController{
             String p = (String) it.next();
             p=p.replace('/',' ');
         }
+    }
+
+    /**
+     * 从restModel获取基本信息
+     * @param model
+     */
+    private void basicInfoGet(RESTModel model) {
+        setPathNum(model.getPaths().size());//提取路径数
+//        validateResult.put("pathNum",getPathNum());
+
+        for(String pathName : model.getPaths().keySet()){
+            PathRESTer path= (PathRESTer) model.getPaths().get(pathName);
+            List<OperationRESTer> operationsInAPath = path.getOperations();
+            this.endpointNum+=operationsInAPath.size();//统计端点数
+            for(OperationRESTer op:operationsInAPath){
+                switch (op.getMethod()){
+                    case "get":
+                        this.opGet++;
+                        break;
+                    case "post":
+                        this.opPost++;
+                        break;
+                    case "delete":
+                        this.opDelete++;
+                        break;
+                    case "put":
+                        this.opPut++;
+                        break;
+                    case "head":
+                        this.opHead++;
+                        break;
+                    case "options":
+                        this.opOptions++;
+                        break;
+                    case "patch":
+                        this.opPatch++;
+                        break;
+                    case "trace":
+                        this.opTrace++;
+                        break;
+                    default:break;
+                }
+            }
+        }
+
+
     }
 
     /**
@@ -2444,7 +2489,7 @@ public class ValidatorController{
             Map<String,Object> pathResult=new HashMap<>();
             String p = (String) it.next();
             //evaluateToScore()
-            if(!(p.indexOf("_") < 0)){
+            if(p.contains("_")){
                 //System.out.println(p+" has _");
                 //this.score=this.score-20>0?this.score-20:0;
                 pathResult.put("no_",false);
@@ -2453,7 +2498,7 @@ public class ValidatorController{
                 pathResult.put("no_",true);
             }
 
-            if(p!=p.toLowerCase()){
+            if(!p.equals(p.toLowerCase())){
                 //System.out.println(p+"need to be lowercase");
                 //this.score=this.score-20>0?this.score-20:0;
                 pathResult.put("lowercase",false);
@@ -2524,10 +2569,12 @@ public class ValidatorController{
             for(int i=0; i< crudnames.length; i++){
                 // notice it should start with the CRUD name
                 String temp=fileHandle.delListFromString(pathclear,delList[i]);
-                if (temp.indexOf(crudnames[i]) >=0) {
+                if (temp.contains(crudnames[i])) {
                     isCrudy = true;
                     verblist.add(crudnames[i]);
-
+                    if(crudnames[i]!="create" && crudnames[i]!="add" && crudnames[i]!="post" && crudnames[i]!="new" && crudnames[i]!="push" ){
+                        this.hasWrongPost=true;
+                    }
                     CRUDPathOperation(p,crudnames[i], result);
                     break;
                 }
@@ -2729,7 +2776,9 @@ public class ValidatorController{
                 if (temp.indexOf(crudnames[i]) >=0) {
                     isCrudy = true;
                     verblist.add(crudnames[i]);
-
+                    if(crudnames[i]!="create" && crudnames[i]!="add" && crudnames[i]!="post" && crudnames[i]!="new" && crudnames[i]!="push" ){
+                        this.hasWrongPost=true;
+                    }
                     CRUDPathOperation(p,crudnames[i], result);
                     break;
                 }
