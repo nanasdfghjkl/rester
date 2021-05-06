@@ -12,7 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 
 public class HSModel extends RESTModel{
-    public HSModel(String html) throws IOException {
+    public HSModel(String html)  {
         //解析api html
         Document document = Jsoup.parse(html);
         Element docTit = document.getElementsByClass("docTit").get(0);
@@ -26,7 +26,12 @@ public class HSModel extends RESTModel{
             Element tr=trs.get(j);
             String url=tr.getElementsByTag("td").get(1).getElementsByTag("a").attr("href");
             url="https://www.hs.net"+url;
-            String endpointHtml= ValidatorController.getUrlContents(url);
+            String endpointHtml= null;
+            try {
+                endpointHtml = ValidatorController.getUrlContents(url);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
             //解析端点html
             Document epdocument = Jsoup.parse(endpointHtml);
             Elements apiTables = epdocument.getElementsByClass("api_table");
@@ -59,7 +64,7 @@ public class HSModel extends RESTModel{
                     case 2:
                         break;
                     case 3:
-                        operation.method=apiTable.text();
+                        operation.method=apiTable.text().toLowerCase();
                         break;
                     case 4:
                         supportType=apiTable.text();
