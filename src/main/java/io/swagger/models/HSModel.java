@@ -39,7 +39,7 @@ public class HSModel extends RESTModel{
 
             PathRESTer path=new PathRESTer();
             List<OperationRESTer> operations=new ArrayList<>();
-            OperationRESTer operation=new OperationRESTer();
+
             ResponseRESTer response=new ResponseRESTer();
             response.status="200";
             String supportType="";
@@ -65,7 +65,13 @@ public class HSModel extends RESTModel{
                     case 2:
                         break;
                     case 3:
-                        operation.method=apiTable.text().toLowerCase();
+                        String[] methods = apiTable.text().toLowerCase().split(",");
+                        for(String method:methods){
+                            OperationRESTer operation=new OperationRESTer();
+                            operation.method=method;
+                            operations.add(operation);
+                        }
+
                         break;
                     case 4:
                         supportType=apiTable.text();
@@ -100,12 +106,14 @@ public class HSModel extends RESTModel{
             }
             List<String > examples=new ArrayList<>();
             examples.add(resExample);
-            operation.parameters=reqParameters;
+            for(OperationRESTer operation:operations){
+                operation.parameters=reqParameters;
+                operation.responses=responses;
+            }
+
             response.headers=resParameters;
             response.examples=examples;
             responses.add(response);
-            operation.responses=responses;
-            operations.add(operation);
             path.operations=operations;
             paths.put(path.pathName,path);
         }
