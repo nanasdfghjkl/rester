@@ -17,14 +17,22 @@ import org.apache.http.client.utils.HttpClientUtils;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 /*import org.json.JSONException;
 import org.json.JSONObject;*/
 
 import javax.json.JsonArray;
+import javax.xml.validation.Validator;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.*;
+
+import com.gargoylesoftware.htmlunit.WebClient;
+import com.gargoylesoftware.htmlunit.html.HtmlPage;
 
 public class fileHandle {
     private List<List<String>> basicInfos=new ArrayList<>();//name,path,endpoint
@@ -73,13 +81,6 @@ public class fileHandle {
         StringEntity entity = new StringEntity(string, "UTF-8");
         httpRequest.setEntity(entity);*/
 
-        ValidatorController validator = new ValidatorController();
-        /*String html=validator.getUrlContents("https://www.hs.net/wiki/api/598_quote_v1_stare_query_right_list.html");
-        validator.validateByHengShengEndpoint(html);
-        System.out.println(validator.getScore());*/
-        String html1=validator.getUrlContents("https://www.hs.net/wiki/service/598.html");
-        validator.validateByHengSheng(html1);
-        System.out.println(validator.getScore());
         /*  //动态检测实验测试2021.4.10
         ValidatorController validator = new ValidatorController();
         //String content=validator.readFile("D:\\test\\data-all-clear\\github.com-v3-swagger.yaml");
@@ -95,9 +96,6 @@ public class fileHandle {
         JSONObject jsonObject=JSONObject.fromObject(pathdetaildynamic);*/
 
 
-//        System.out.println("pathDetail-dynamic:"+string);
-        System.out.println("responseNum:"+validator.getResponseNum());
-        System.out.println("valideResponseNum:"+validator.getValidResponseNum());
 /*String string = jsonObject.toString();//消息体字符串
         File csvFile = null;
         BufferedWriter csvFileOutputStream = null;
@@ -186,9 +184,85 @@ public class fileHandle {
             System.out.println(name+" start!");
             ResponseContext response = validator.validateByString(new RequestContext(), content);
 */
+        System.out.println(" start:");
+        String htmltext= null;
+        ValidatorController validator1=new ValidatorController();
+        try {
+            htmltext = validator1.getUrlContents("https://www.hs.net/wiki/service/537.html");
+            validator1.validateByHengSheng(htmltext);
+            validator1.getValidateResult();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        System.out.println(" end");
+        validateHTMLs();
         return ;
     }
+    public static void validateHTMLs(){
+        //Htmlunit模拟的浏览器，设置css,js等支持及其它的一些简单设置
+        WebClient browser = new WebClient();
+        browser.getOptions().setCssEnabled(false);
+        browser.getOptions().setJavaScriptEnabled(true);
+        browser.getOptions().setThrowExceptionOnScriptError(false);
 
+        //获取页面
+        HtmlPage htmlPage = null;
+        try {
+            htmlPage = browser.getPage("https://www.hs.net/api.html");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        //设置等待js的加载时间
+        browser.waitForBackgroundJavaScript(3000);
+
+        //使用xml的方式解析获取到jsoup的document对象
+
+        ValidatorController validator=new ValidatorController();
+        String html= null;
+        List<String> apiHTMLs=new ArrayList<>();
+        Document doc = Jsoup.parse(htmlPage.asXml());
+//        System.out.println(doc);
+            /*html = validator.getUrlContents("https://www.hs.net/api.html");
+            Document document = Jsoup.parse(html);*/
+        Elements seculs = doc.getElementsByClass("sec");
+        for(Element ul:seculs){
+            Elements lis=ul.getElementsByTag("li");
+            for(Element li: lis){
+                String url=li.getElementsByTag("a").attr("href");
+                url="https://www.hs.net"+url;
+//                System.out.println(url);
+                apiHTMLs.add(url);
+            }
+        }
+        for(String apihtml:apiHTMLs){
+            System.out.println(apihtml+" start:");
+            String htmltext= null;
+            ValidatorController validator1=new ValidatorController();
+            try {
+                htmltext = validator.getUrlContents(apihtml);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            validator1.validateByHengSheng(htmltext);
+            Map<String, Object> result=validator1.getValidateResult();
+            FileOutputStream outStream = null;
+            try {
+                String filename=apihtml.substring(32);
+//                outStream = new FileOutputStream("D:\\REST API file\\result\\hengsheng\\"+filename+".json");
+                outStream = new FileOutputStream("D:\\REST API file\\result\\hengsheng\\"+filename+".json");
+                JSONObject jo=JSONObject.fromObject(result);
+                try {
+                    outStream.write(jo.toString().getBytes("UTF-8"));
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            }
+
+        }
+
+    }
     /**
     *@Description: 检索并删除字符串中的指定字符串列表
     *@Param: [p, delList]
