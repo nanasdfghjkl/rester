@@ -24,7 +24,8 @@ public class HSModel extends RESTModel{
         for(int j=1;j<trs.size();j++){
             //获取每个端点的html
             Element tr=trs.get(j);
-            String url=tr.getElementsByTag("td").get(1).getElementsByTag("a").attr("href");
+//            String url=tr.getElementsByTag("td").get(1).getElementsByTag("a").attr("href");
+            String url=tr.getElementsByTag("a").attr("href");
             url="https://www.hs.net"+url;
             String endpointHtml= null;
             try {
@@ -93,7 +94,10 @@ public class HSModel extends RESTModel{
                 }
             }
             Elements codes = epdocument.getElementsByClass("code");
-            String resExample=codes.get(1).text();
+            String resExample="";
+            if(codes.size()>1){
+                resExample=codes.get(1).text();
+            }
             List<String > examples=new ArrayList<>();
             examples.add(resExample);
             operation.parameters=reqParameters;

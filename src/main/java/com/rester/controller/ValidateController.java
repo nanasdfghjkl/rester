@@ -35,6 +35,8 @@ public class ValidateController {
         if(context!=null){
             validator.validateByString(new RequestContext(), context);
             result=validator.getValidateResult();
+        }else {
+            result=new HashMap<>();
         }
         result.put("categoryResult",categoryResult);
         return result;
@@ -76,6 +78,8 @@ public class ValidateController {
             System.out.println("start RAD validate");
             validator.validateByString(new RequestContext(), context);
             result=validator.getValidateResult();
+        }else {
+            result=new HashMap<>();
         }
         System.out.println("name:"+result.get("name"));
         result.put("categoryResult",categoryResult);
@@ -105,6 +109,8 @@ public class ValidateController {
             validator.validateByString(new RequestContext(), context);
             result=validator.getValidateResult();
             System.out.println("name:"+result.get("name"));
+        }else{
+            result=new HashMap<>();
         }
         result.put("categoryResult",categoryResult);
         return result;

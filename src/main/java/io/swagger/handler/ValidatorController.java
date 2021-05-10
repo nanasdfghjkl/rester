@@ -967,6 +967,7 @@ public class ValidatorController{
         basicInfoGet(model);
         //路径检测
         Map<String,Object> paths=model.getPaths();
+        if(paths.size()==0) return ;
         pathEvaluate(paths.keySet(),model);
         //域名检测
         List<String> servers=model.getBaseURLs();
@@ -1541,7 +1542,7 @@ public class ValidatorController{
 
                 //类别信息获取
                 setCategory(result);
-
+                this.score=scoreCalculate();
                 //填写输出Json
                 setValidateResult();
 
@@ -1773,14 +1774,14 @@ public class ValidatorController{
                 validateResult.put("hasAuthorization",this.hasAuthorization);
                 validateResult.put("versionInHeader",this.versionInHead);
                 validateResult.put("hasAccpet",this.hasAccept);*/
-
+                this.score=scoreCalculate();
                 setValidateResult();
 
                 
             }
         }
         evaluations.put("endpointNum",String.valueOf(this.endpointNum));//将端点数填入评估结果
-        this.score=scoreCalculate();
+
         // do actual JSON schema validation
         JsonSchema schema = null;
         try {
