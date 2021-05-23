@@ -9,9 +9,9 @@ import java.util.Map;
 public class Request {
     private String url;
     private Map<String,String> header;
-    private Map<String ,Object> entity;
+    private String entity;
     private String method;
-    public Request(String method,String url, Map<String, String> header, Map<String, Object> entity){
+    public Request(String method,String url, Map<String, String> header, String entity){
         this.method=method;
         this.url=url;
         this.header=header;
@@ -30,7 +30,7 @@ public class Request {
         return header;
     }
 
-    public Map<String, Object> getEntity() {
+    public String getEntity() {
         return entity;
     }
 }
