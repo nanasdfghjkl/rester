@@ -62,6 +62,7 @@ import org.json.JSONObject;*/
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.jvnet.hk2.annotations.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -85,7 +86,10 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Node;
 import org.jsoup.select.Elements;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
+@Service
 public class ValidatorController{
 
     static final String SCHEMA_FILE = "schema3.json";
@@ -192,7 +196,23 @@ public class ValidatorController{
     private boolean hasWrongStatus=false;//是否有HTTP协议定义外的状态码
     private boolean hasWrongPost=false;//是否有对POST方法的误用
 
-
+//    @Value("${UUID}")
+    private String uuid;
+//    @Value("${DATE}")
+    private String date;
+//    @Value("${URL}")
+    private String url;
+//    @Value("${KEY}")
+    private String key;
+//    @Value("${TOKEN}")
+    private String token;
+//    @Value("${NO}")
+    private String no;
+//    @Value("${EMAIL}")
+    private String email;
+    private String owner;
+    private String user;
+    private String language;
     public int getResponseNum() {
         return responseNum;
     }
@@ -442,7 +462,18 @@ public class ValidatorController{
         this.hasPagePara = hasPagePara;
     }
 
-
+    public ValidatorController(){
+        uuid=ConfigManager.getInstance().getValue("UUID");
+        date=ConfigManager.getInstance().getValue("date");
+        url=ConfigManager.getInstance().getValue("URL");
+        key =ConfigManager.getInstance().getValue("KEY");
+        token =ConfigManager.getInstance().getValue("TOKEN");
+        no =ConfigManager.getInstance().getValue("NO");
+        email=ConfigManager.getInstance().getValue("EMAIL");
+        owner=ConfigManager.getInstance().getValue("OWNER");
+        user=ConfigManager.getInstance().getValue("USER");
+        language=ConfigManager.getInstance().getValue("LANGUAGE");
+    }
 
     public float getScore() {
         return score;
@@ -707,16 +738,18 @@ public class ValidatorController{
             for(Scheme scheme:schemes){
                 for (Iterator it = paths.iterator(); it.hasNext(); ) {
                     String pathString = (String) it.next();
-                    if(pathString.contains("/watchers")){
+                    Path path=result.getSwagger().getPath(pathString);
+                    System.out.println(pathString);
+                    if(pathString.contains("/user/emails")){
                         System.out.println("that's it");
                     }
-                    Path path=result.getSwagger().getPath(pathString);
                     Map<String,io.swagger.models.Operation> operations=getAllOperationsMapInAPath(path);
                     for(String method : operations.keySet()){//对于每一个操作,创建一个请求
                         if(operations.get(method)!=null && method!="delete"){//先不考虑删除操作，会影响资源的存在，因为资源之间的依赖导致请求无效
                             io.swagger.models.Operation operation=operations.get(method);
                             Map<String,String> headers=new HashMap<>();//请求头文件
                             Map<String,Object> entity=new HashMap<>();//请求体
+                            List<Object> arrayEntity=new ArrayList<>();
                             String requestPath=pathString;//请求路径
 
                             List<io.swagger.models.parameters.Parameter> parameters= operation.getParameters();
@@ -756,7 +789,8 @@ public class ValidatorController{
                                             }else if(paraMapValue!=null && paraMapValue.length()!=0){
                                                 paraValue=paraMapValue;
                                             }  else{
-                                                paraValue=getDefaultFromType(paraType).toString();
+                                                paraValue=getDefaultFromType(paraType,paraName).toString();
+//                                                paraValue=getDefaultStringFromName(paraName).toString();
                                             }
 
                                             //根据属性位置给请求填充属性
@@ -780,9 +814,9 @@ public class ValidatorController{
                                                 }
                                             }else if(bodypara.getSchema()!=null){//schema内容描述
                                                 Map<String, Property> properties=bodypara.getSchema().getProperties();
-                                                if(properties!=null){//schema中直接有描述
+                                                if(properties!=null){//schema中直接有properties描述
                                                     entity=parsePropertiesToEntity(properties);
-                                                }else if(bodypara.getSchema().getReference()!=null){//引用schema
+                                                }else if(bodypara.getSchema().getReference()!=null){//为引用属性
                                                     //从definition中获得描述信息
                                                     String ref=bodypara.getSchema().getReference();
                                                     String[] refsplits=ref.split("/");
@@ -793,7 +827,19 @@ public class ValidatorController{
                                                         if(propertiesFromDef!=null){
                                                             entity=parsePropertiesToEntity(propertiesFromDef);//将property生成消息体
                                                         }else{//消息体中没有对参数的描述
-                                                            entity.put("body","rester");
+                                                            //数组Array类型的definition，没有properties，获取其items
+                                                            ArrayModel arrdef= (ArrayModel) def;
+
+                                                            Property items=arrdef.getItems();
+                                                            //items类型是object，properties对其进行描述
+                                                            if(items.getType().equals("object")){
+                                                                ObjectProperty itemsob=(ObjectProperty) items;
+                                                                Map<String, Property> propertiesFromItems=itemsob.getProperties();
+                                                                entity=parsePropertiesToEntity(propertiesFromItems);
+                                                                arrayEntity.add(entity);
+                                                            }else{//其他类型（基本类型）
+                                                                arrayEntity.add(getDefaultFromType(items.getType(),refsplits[2]));
+                                                            }
                                                         }
 
                                                     }
@@ -820,7 +866,16 @@ public class ValidatorController{
                             }
                             String url=scheme.toValue()+"://"+host+basepath+requestPath;
                             //System.out.println(url);
-                            Request request=new Request(method,url,headers,entity);
+                            //将消息体对象转化为字符串
+                            String entitystring="";
+                            if(arrayEntity.size()!=0){
+                                JSONArray jsonArray=JSONArray.fromObject(arrayEntity);
+                                entitystring=jsonArray.toString();
+                            }else{
+                                JSONObject jsonObject=JSONObject.fromObject(entity);
+                                entitystring = jsonObject.toString();
+                            }
+                            Request request=new Request(method,url,headers,entitystring);
                             dynamicValidateByURL(pathString,request,false,false);
                         }
                     }
@@ -876,6 +931,43 @@ public class ValidatorController{
     }
 
     /**
+     * 根据名称获得默认值(String类型）
+     * @param paraName
+     * @return
+     */
+    private String getDefaultStringFromName(String paraName) {
+        if(paraName.toLowerCase().contains("id")){
+            return uuid;
+        }
+        if(paraName.toLowerCase().contains("date") || paraName.toLowerCase().contains("time")
+                || paraName.toLowerCase().contains("last") || paraName.toLowerCase().contains("first")){
+            return date;
+        }
+        if(paraName.toLowerCase().contains("url") || paraName.toLowerCase().contains("link")){
+            return url;
+        }
+        if(paraName.toLowerCase().contains("key")){
+            return key;
+        }
+        if(paraName.toLowerCase().contains("token")){
+            return token;
+        }
+        if(paraName.toLowerCase().contains("no")){
+            return no;
+        }
+        if(paraName.toLowerCase().contains("email")){
+            return email;
+        }
+        if(paraName.toLowerCase().contains("owner") || paraName.toLowerCase().contains("user")){
+            return owner;
+        }
+        if(paraName.toLowerCase().contains("lan") || paraName.toLowerCase().contains("language")){
+            return language;
+        }
+        return  "rester";
+    }
+
+    /**
      * 一致性检测
      */
     private void consistencyDetect() {
@@ -915,17 +1007,17 @@ public class ValidatorController{
                     ArrayProperty arrPro=(ArrayProperty)pro;
                     String itemType=arrPro.getItems().getType();
                     List<Object> items=new ArrayList<>();
-                    items.add(getDefaultFromType(itemType));//返回基本类型的默认值
+                    items.add(getDefaultFromType(itemType,proName));//返回基本类型的默认值
                     result.put(proName,items);
 
                 }else if(pro.getType()=="map"){
                     MapProperty mapPro=(MapProperty)pro;
                     String proType=mapPro.getAdditionalProperties().getType();
                     Map<String,Object> pros=new HashMap<>();
-                    pros.put(proType,getDefaultFromType(proType));
+                    pros.put(proType,getDefaultFromType(proType,proName));
                     result.put(proName,pros);
                 }else{
-                    result.put(proName,getDefaultFromType(pro.getType()));
+                    result.put(proName,getDefaultFromType(pro.getType(),proName));
                 }
             }
 
@@ -938,9 +1030,9 @@ public class ValidatorController{
      * @param itemType
      * @return
      */
-    private Object getDefaultFromType(String itemType) {
+    private Object getDefaultFromType(String itemType,String paraName) {
         if(itemType=="string"){
-            return "string";
+            return getDefaultStringFromName(paraName);
         }else if(itemType=="integer"){
             return 0;
         }else if(itemType=="boolean"){
@@ -2137,27 +2229,27 @@ public class ValidatorController{
         for(Header header:headers){
 //            System.out.println(header.getName());
             if(header.getName().toLowerCase().equals("etag")){
-                System.out.println(url+" response has etag");
+//                System.out.println(url+" response has etag");
                 hasEtag=true;
 
             }else if(header.getName().toLowerCase().equals("last-modified")){
-                System.out.println(url+" response has last-modified");
+//                System.out.println(url+" response has last-modified");
                 hasLastModified=true;
             }else if(header.getName().toLowerCase().equals("expires")){
-                System.out.println(url+" response has expires");
+//                System.out.println(url+" response has expires");
                 hasExpires=true;
             }else if(header.getName().toLowerCase().equals("cache-control")){
-                System.out.println(url+" response has cache-control");
+//                System.out.println(url+" response has cache-control");
                 hasCacheControl=true;
             }else if(header.getName().toLowerCase().equals("date")){
-                System.out.println(url+" response has date");
+//                System.out.println(url+" response has date");
                 hasDate=true;
             }else if(header.getName().toLowerCase().equals("content-type")){
 
                 //evaluations.put("content-type",header.getValue());
                 contentType=header.getValue();
                 hasContentType=true;
-                System.out.println(url+" response has content-type:"+contentType);
+//                System.out.println(url+" response has content-type:"+contentType);
             }
         }
         hasCacheScheme=hasCacheControl || hasEtag || hasExpires || hasLastModified;
@@ -3002,12 +3094,12 @@ public class ValidatorController{
 
             Map<String, String> header=request.getHeader();
             //指定身份认证
-            header.put("authorization","token 7d3d79e8be31ca6a367b1920acf5bd3bbd119881");
+            header.put("authorization","token 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");
             header.put("Accept", "application/json, */*");
 
-            JSONObject jsonObject=JSONObject.fromObject(request.getEntity());
-            String string = jsonObject.toString();//消息体字符串
-
+            /*JSONObject jsonObject=JSONObject.fromObject(request.getEntity());
+            String string = jsonObject.toString();//消息体字符串*/
+            String string = request.getEntity();//消息体字符串
 
             System.out.println(method);
             pathResult.put("method",method);
@@ -3250,7 +3342,7 @@ public class ValidatorController{
                    entityObject = JSONObject.fromObject(entityString);
                    //keySet=JSONObject.getNames(entityObject);
                }catch (JSONException e){
-                   System.out.println(e.toString());
+                   System.out.println("error:"+e.toString());
                    return;
                }
 
@@ -3263,7 +3355,7 @@ public class ValidatorController{
                        //keySet = JSONObject.getNames(object);
                    }
                }catch (JSONException e){
-                   System.out.println(e.toString());
+                   System.out.println("error:"+e.toString());
                    return;
                }
            }
@@ -3275,16 +3367,15 @@ public class ValidatorController{
                for(Object key:entityjson.keySet()){
                    if(key.toString().toLowerCase().contains("link")){
                        isHATEOAS=true;
-                       System.out.println(urlString+"has HATEOAS "+key+":"+entityjson.getString(key.toString()));
+//                       System.out.println(urlString+"has HATEOAS "+key+":"+entityjson.getString(key.toString()));
                    }
                    if (pathParameters != null) {
                        for (Object paraName : pathParameters.keySet()) {
                            if(pathParameters.get(paraName)==""){
-                               if(key.toString().toLowerCase().equals(paraName.toString().toLowerCase())){//精确匹配优先
-                                   pathParameters.put(paraName,entityjson.get(key).toString());
-                               }
-                               else if(key.toString().toLowerCase().contains(paraName.toString().toLowerCase()) || paraName.toString().toLowerCase().contains(key.toString().toLowerCase())){//模糊匹配
-                                   pathParameters.put(paraName,entityjson.get(key).toString());
+                               //精确匹配优先
+                               if(key.toString().toLowerCase().contains(paraName.toString().toLowerCase()) || paraName.toString().toLowerCase().contains(key.toString().toLowerCase())){//模糊匹配
+                                   String entityValue=entityjson.get(key).toString().replace(' ','-');
+                                   pathParameters.put(paraName,entityValue);
                                }
                            }
 
