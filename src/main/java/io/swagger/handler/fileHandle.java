@@ -81,7 +81,7 @@ public class fileHandle {
         StringEntity entity = new StringEntity(string, "UTF-8");
         httpRequest.setEntity(entity);*/
 
-        /*  //动态检测实验测试2021.4.10
+          //动态检测实验测试
         ValidatorController validator = new ValidatorController();
         //String content=validator.readFile("D:\\test\\data-all-clear\\github.com-v3-swagger.yaml");
         String content=validator.readFile("D:\\test\\data-all-clear\\github.com-v3-swagger.yaml");
@@ -93,7 +93,7 @@ public class fileHandle {
         //动态检测
         validator.dynamicValidateByContent(content);
         Map<String,Object> pathdetaildynamic=validator.getPathDetailDynamic();
-        JSONObject jsonObject=JSONObject.fromObject(pathdetaildynamic);*/
+        System.out.println(pathdetaildynamic.size());
 
 
 /*String string = jsonObject.toString();//消息体字符串
@@ -184,18 +184,7 @@ public class fileHandle {
             System.out.println(name+" start!");
             ResponseContext response = validator.validateByString(new RequestContext(), content);
 */
-        System.out.println(" start:");
-        String htmltext= null;
-        ValidatorController validator1=new ValidatorController();
-        try {
-            htmltext = validator1.getUrlContents("https://www.hs.net/wiki/service/537.html");
-            validator1.validateByHengSheng(htmltext);
-            validator1.getValidateResult();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        System.out.println(" end");
-        validateHTMLs();
+//        validateHTMLs();
         return ;
     }
     public static void validateHTMLs(){
