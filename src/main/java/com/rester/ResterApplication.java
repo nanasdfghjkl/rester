@@ -10,6 +10,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 
 @SpringBootApplication
@@ -40,7 +41,7 @@ public class ResterApplication {
 
         //静态检测
         validator.validateByString(new RequestContext(), content);
-        Map<String, Map<String, String>> map = validator.getPathParameterMap();
+        Map<String, Map<String, List<String>>> map = validator.getPathParameterMap();
         System.out.println("mapsize:"+map.size());
         //动态检测
         try {

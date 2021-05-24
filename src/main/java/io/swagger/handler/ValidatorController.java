@@ -190,7 +190,7 @@ public class ValidatorController{
     private boolean hasAuthorization=false;//头文件（属性）中是否有TokenAuthorization
 
     private Map<String,PathTreeNode> pathTree;//路径结点树（森林）
-    private Map<String,Map<String,String >> pathParameterMap=new HashMap<>();//属性散列表
+    private Map<String,Map<String,List<String> >> pathParameterMap=new HashMap<>();//属性散列表，path-parameter-values
     private int responseNum=0;//获得的响应数目
     private int validResponseNum=0;//获得的有效响应数目（2字头）
     private boolean hasWrongStatus=false;//是否有HTTP协议定义外的状态码
@@ -284,7 +284,7 @@ public class ValidatorController{
         return pathDetailDynamic;
     }
 
-    public Map<String, Map<String, String>> getPathParameterMap() {
+    public Map<String, Map<String, List<String>>> getPathParameterMap() {
         return pathParameterMap;
     }
 
@@ -740,7 +740,7 @@ public class ValidatorController{
                     String pathString = (String) it.next();
                     Path path=result.getSwagger().getPath(pathString);
                     System.out.println(pathString);
-                    if(pathString.contains("/user/emails")){
+                    if(pathString.contains("/repos/{owner}/{repo}/commits/{ref}/status")){
                         System.out.println("that's it");
                     }
                     Map<String,io.swagger.models.Operation> operations=getAllOperationsMapInAPath(path);
@@ -781,7 +781,11 @@ public class ValidatorController{
                                             ppname=StanfordNLP.removeSlash(ppname);//去除多余/和尾/
                                             String paraMapValue="";
                                             if(pathParameterMap.containsKey(ppname)){
-                                                paraMapValue=pathParameterMap.get(ppname).get(paraName);//获取对应的路径属性散列表中的属性值
+                                                //获取对应的路径属性散列表中的属性值,先只获取第一个
+                                                if(pathParameterMap.get(ppname).get(paraName).size()>0){
+                                                    paraMapValue=pathParameterMap.get(ppname).get(paraName).get(0);
+                                                }
+
                                             }
                                             //生成属性值：优先级排序：说明文档提供的枚举值，路径属性散列表，类型默认值
                                             if(paraEnum!=null){
@@ -2005,11 +2009,13 @@ public class ValidatorController{
         }
         ppname=StanfordNLP.removeSlash(ppname);//去除多余/和尾/
         if(pathParameterMap.containsKey(ppname)){
-            pathParameterMap.get(ppname).put(pName,"");
+            List<String> pvalues=new ArrayList<>();
+            pathParameterMap.get(ppname).put(pName,pvalues);
 
         }else{
-            Map<String,String> paras=new HashMap<>();
-            paras.put(pName,"");
+            Map<String,List<String>> paras=new HashMap<>();
+            List<String> pvalues=new ArrayList<>();
+            paras.put(pName,pvalues);
             pathParameterMap.put(ppname,paras);
 
         }
@@ -3327,7 +3333,7 @@ public class ValidatorController{
         String ppname=StanfordNLP.removeBrace(pathName);
         ppname=StanfordNLP.removeSlash(ppname);
 
-        Map pathParameters=pathParameterMap.get(ppname);
+        Map<String,List<String>> pathParameters=pathParameterMap.get(ppname);
 
 
        if(entity.getContentType().getValue().contains("application/json")) {//判断响应体格式是否为json
@@ -3369,18 +3375,23 @@ public class ValidatorController{
                        isHATEOAS=true;
 //                       System.out.println(urlString+"has HATEOAS "+key+":"+entityjson.getString(key.toString()));
                    }
-                   if (pathParameters != null) {
-                       for (Object paraName : pathParameters.keySet()) {
-                           if(pathParameters.get(paraName)==""){
+                   String entityValue=entityjson.get(key).toString().replace(' ','-');
+                   //只检测响应消息的第一层，如果值为对象，跳过不检测
+                   if(!entityValue.contains("{") && !entityValue.contains("[")){
+                       if (pathParameters != null) {
+                           for (String paraName : pathParameters.keySet()) {
                                //精确匹配优先
-                               if(key.toString().toLowerCase().contains(paraName.toString().toLowerCase()) || paraName.toString().toLowerCase().contains(key.toString().toLowerCase())){//模糊匹配
-                                   String entityValue=entityjson.get(key).toString().replace(' ','-');
-                                   pathParameters.put(paraName,entityValue);
+                               if(key.toString().toLowerCase().contains(paraName.toLowerCase()) || paraName.toLowerCase().contains(key.toString().toLowerCase())){//模糊匹配
+                                   List<String> values = pathParameters.get(paraName);
+                                   values.add(entityValue);
+                                   pathParameters.put(paraName,values);
                                }
-                           }
 
+
+                           }
                        }
                    }
+
                }
            }
 
