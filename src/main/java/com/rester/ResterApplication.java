@@ -1,5 +1,6 @@
 package com.rester;
 
+import com.mifmif.common.regex.Generex;
 import io.swagger.handler.ValidatorController;
 import io.swagger.oas.inflector.models.RequestContext;
 import org.springframework.boot.SpringApplication;
@@ -29,6 +30,13 @@ public class ResterApplication {
 
     public static void main(String[] args) {
         SpringApplication.run(ResterApplication.class, args);
+
+        Generex generex = new Generex("[0-3]([a-c]|[e-g]{1,2})");
+
+        // Generate random String
+        String randomStr = generex.random();
+        System.out.println(randomStr);// a random value from the previous String list
+
 
         ValidatorController validator = new ValidatorController();
         //String content=validator.readFile("D:\\test\\data-all-clear\\github.com-v3-swagger.yaml");
