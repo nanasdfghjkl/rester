@@ -740,9 +740,9 @@ public class ValidatorController{
                     String pathString = (String) it.next();
                     Path path=result.getSwagger().getPath(pathString);
                     System.out.println(pathString);
-                    if(pathString.contains("/repos/{owner}/{repo}/commits/{ref}/status")){
+                    /*if(pathString.contains("/repos/{owner}/{repo}/commits/{ref}/status")){
                         System.out.println("that's it");
-                    }
+                    }*/
                     Map<String,io.swagger.models.Operation> operations=getAllOperationsMapInAPath(path);
                     for(String method : operations.keySet()){//对于每一个操作,创建一个请求
                         if(operations.get(method)!=null && method!="delete"){//先不考虑删除操作，会影响资源的存在，因为资源之间的依赖导致请求无效
@@ -754,6 +754,7 @@ public class ValidatorController{
 
                             List<io.swagger.models.parameters.Parameter> parameters= operation.getParameters();
                             Map<String,String> queryParas=new HashMap<>();//查询参数
+                            Map<String,String> pathParas=new HashMap<>();//路径参数
                             if(parameters!=null){
                                 for(io.swagger.models.parameters.Parameter parameter:parameters){
                                     /*//Swagger解析时，RefParameter会直接连接到对应属性，并生成对应的实例
@@ -801,6 +802,7 @@ public class ValidatorController{
 
                                             if(paraIn=="path") {//路径属性
                                                 requestPath=requestPath.replace("{"+paraName+"}",paraValue);
+                                                pathParas.put(paraName,paraValue);
                                             }else if(paraIn=="query"){//查询属性
                                                 queryParas.put(paraName,paraValue);
                                                 //pathString+="?"+paraName+"="+paraValue;
@@ -879,8 +881,11 @@ public class ValidatorController{
                                 JSONObject jsonObject=JSONObject.fromObject(entity);
                                 entitystring = jsonObject.toString();
                             }
-                            Request request=new Request(method,url,headers,entitystring);
+                            Request request=new Request(pathString,method,url,headers,pathParas,queryParas,entitystring);
                             dynamicValidateByURL(pathString,request,false,false);
+                            //属性变异
+                            RandomRequestGenerator rrg=new RandomRequestGenerator(request);
+                            List<Request> randomRequests=rrg.requestGenerate();
                         }
                     }
 
@@ -1586,11 +1591,12 @@ public class ValidatorController{
 
                             //构建路径必须属性散列表
                             for (io.swagger.models.parameters.Parameter p : operation.getParameters()) {
-                                if (p.getRequired() == true) {
+                                //非必需属性也构建的到属性列表中
+//                                if (p.getRequired() == true) {
                                     String pIn = p.getIn();//属性位置
                                     String pName = p.getName();//属性名称
                                     buildPathParameterMap(pathName, pName, pIn);
-                                }
+//                                }
                             }
                         }
                     }
