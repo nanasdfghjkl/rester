@@ -13,6 +13,8 @@ import org.springframework.web.filter.CorsFilter;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @SpringBootApplication
 public class ResterApplication {
@@ -29,14 +31,18 @@ public class ResterApplication {
     }
 
     public static void main(String[] args) {
+        Pattern p= Pattern.compile("((\\+|-)?(([0-9]+\\.)|([0-9]+\\.[0-9]+)|(\\.[0-9]+))|([0-9]+))|((e|E)?(\\+|-)?[0-9]+)");
+        Matcher m1 = p.matcher("8");
+
+        System.out.println(m1.matches());
         SpringApplication.run(ResterApplication.class, args);
 
-        Generex generex = new Generex("[0-3]([a-c]|[e-g]{1,2})");
+        /*Generex generex = new Generex("[0-3]([a-c]|[e-g]{1,2})");
 
         // Generate random String
         String randomStr = generex.random();
         System.out.println(randomStr);// a random value from the previous String list
-
+*/
 
         ValidatorController validator = new ValidatorController();
         //String content=validator.readFile("D:\\test\\data-all-clear\\github.com-v3-swagger.yaml");
