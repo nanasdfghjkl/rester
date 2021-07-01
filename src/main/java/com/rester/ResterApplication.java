@@ -48,7 +48,8 @@ public class ResterApplication {
         //String content=validator.readFile("D:\\test\\data-all-clear\\github.com-v3-swagger.yaml");
         String content= null;
         try {
-            content = validator.readFile("D:\\test\\data-all-clear\\github.com-v3-swagger.yaml");
+            //content = validator.readFile("D:\\test\\data-all-clear\\github.com-v3-swagger.yaml");
+            content = validator.readFile("D:\\test\\api.github.com.json");
         } catch (IOException e) {
             e.printStackTrace();
         }
