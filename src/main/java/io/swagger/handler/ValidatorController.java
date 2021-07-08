@@ -211,6 +211,8 @@ public class ValidatorController{
     private String owner;
     private String user;
     private String language;
+    private String org;
+    private final Logger logger = LoggerFactory.getLogger(this.getClass());
     public int getResponseNum() {
         return responseNum;
     }
@@ -471,6 +473,7 @@ public class ValidatorController{
         owner=ConfigManager.getInstance().getValue("OWNER");
         user=ConfigManager.getInstance().getValue("USER");
         language=ConfigManager.getInstance().getValue("LANGUAGE");
+        org = ConfigManager.getInstance().getValue("ORG");
     }
 
     public float getScore() {
@@ -1132,6 +1135,9 @@ public class ValidatorController{
         }
         if(paraName.toLowerCase().contains("lan") || paraName.toLowerCase().contains("language")){
             return language;
+        }
+        if(paraName.toLowerCase().contains("org") || paraName.toLowerCase().contains("organization")){
+            return org;
         }
         return  "rester";
     }
@@ -3321,7 +3327,7 @@ public class ValidatorController{
                 for(String name:header.keySet()){
                     httpRequest.setHeader(name,header.get(name));
                 }
-
+                logger.info(urlString+",,"+method+",,"+string);
                 final CloseableHttpClient httpClient = getCarelessHttpClient(rejectRedirect);//创建HTTP客户端
                 if (httpClient != null) {
                     final CloseableHttpResponse response = httpClient.execute(httpRequest);
@@ -3344,7 +3350,7 @@ public class ValidatorController{
                 httpRequest.setEntity(entity);
                 System.out.println("entity: "+string);
                 pathResult.put("requestEntity",string);
-
+                logger.info(urlString+",,"+method+",,"+string);
                 final CloseableHttpClient httpClient = getCarelessHttpClient(rejectRedirect);//创建HTTP客户端
                 if (httpClient != null) {
                     final CloseableHttpResponse response = httpClient.execute(httpRequest);//获得响应
@@ -3368,7 +3374,7 @@ public class ValidatorController{
                 httpRequest.setEntity(entity);
                 System.out.println("entity: "+string);
                 pathResult.put("requestEntity",string);
-
+                logger.info(urlString+",,"+method+",,"+string);
                 final CloseableHttpClient httpClient = getCarelessHttpClient(rejectRedirect);//创建HTTP客户端
                 if (httpClient != null) {
                     final CloseableHttpResponse response = httpClient.execute(httpRequest);
@@ -3385,7 +3391,7 @@ public class ValidatorController{
                 for(String name:header.keySet()){
                     httpRequest.setHeader(name,header.get(name));
                 }
-
+                logger.info(urlString+",,"+method+",,"+string);
                 final CloseableHttpClient httpClient = getCarelessHttpClient(rejectRedirect);//创建HTTP客户端
                 if (httpClient != null) {
                     final CloseableHttpResponse response = httpClient.execute(httpRequest);
@@ -3402,7 +3408,7 @@ public class ValidatorController{
                 for(String name:header.keySet()){
                     httpRequest.setHeader(name,header.get(name));
                 }
-
+                logger.info(urlString+",,"+method+",,"+string);
                 final CloseableHttpClient httpClient = getCarelessHttpClient(rejectRedirect);//创建HTTP客户端
                 if (httpClient != null) {
                     final CloseableHttpResponse response = httpClient.execute(httpRequest);
@@ -3425,7 +3431,7 @@ public class ValidatorController{
                 httpRequest.setEntity(entity);
                 System.out.println("entity: "+string);
                 pathResult.put("requestEntity",string);
-
+                logger.info(urlString+",,"+method+",,"+string);
                 final CloseableHttpClient httpClient = getCarelessHttpClient(rejectRedirect);//创建HTTP客户端
                 if (httpClient != null) {
                     final CloseableHttpResponse response = httpClient.execute(httpRequest);
@@ -3442,7 +3448,7 @@ public class ValidatorController{
                 for(String name:header.keySet()){
                     httpRequest.setHeader(name,header.get(name));
                 }
-
+                logger.info(urlString+",,"+method+",,"+string);
                 final CloseableHttpClient httpClient = getCarelessHttpClient(rejectRedirect);//创建HTTP客户端
                 if (httpClient != null) {
                     final CloseableHttpResponse response = httpClient.execute(httpRequest);
@@ -3460,7 +3466,7 @@ public class ValidatorController{
                 for(String name:header.keySet()){
                     httpRequest.setHeader(name,header.get(name));
                 }
-
+                logger.info(urlString+",,"+method+",,"+string);
                 final CloseableHttpClient httpClient = getCarelessHttpClient(rejectRedirect);//创建HTTP客户端
                 if (httpClient != null) {
                     final CloseableHttpResponse response = httpClient.execute(httpRequest);
@@ -3488,11 +3494,12 @@ public class ValidatorController{
             HttpEntity entity = response.getEntity();//获取响应体
             pathResult.put("status",line.getStatusCode());
             if (line.getStatusCode() > 299 || line.getStatusCode() < 200) {//成功状态
+                logger.info("status:"+line.getStatusCode()+",,"+EntityUtils.toString(entity));
                 return ;
                 //throw new IOException("failed to read swagger with code " + line.getStatusCode());
             }
             this.validResponseNum++;
-
+            logger.info("status:"+line.getStatusCode());
             if(headers!=null){
                 headerEvaluate(urlString,headers,pathResult);//对头文件进行检测
                 //System.out.println("changesuccess?"+pathResult.size());
