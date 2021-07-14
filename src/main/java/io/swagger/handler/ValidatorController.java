@@ -1028,7 +1028,7 @@ public class ValidatorController{
                                             entity.putAll(requestContent.get("application/json").getExamples());
                                         }else{
                                             Schema schema = requestContent.get("application/json").getSchema();
-                                            if(schema.getType().equals("object") && schema.getProperties()!=null){
+                                            if(schema!=null && schema.getType()!=null && schema.getType().equals("object") && schema.getProperties()!=null){
                                                 entity = parseSchemaToEntity(result.getOpenAPI(),schema.getProperties());
                                             }
                                         }
@@ -3301,7 +3301,7 @@ public class ValidatorController{
             Map<String, String> header=request.getHeader();
             //指定身份认证
             if(urlString.contains("app")){
-                header.put("authorization","Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoienh5IiwiaXNzIjoiMTIzNzg0IiwiZXhwIjoxNjI1MDM4NjI5LCJpYXQiOjE1MTYyMzkwMjJ9.SB6q6y30vGfjNZqWYWgaaKgB3aFt5vsBDm7gs_8RhZcsu22iVJEnOQrZgKxf0ug4u5qJnIYxCYpK3XYGGBR6Z6jQoeUVoawOpTr1hBvebX4B8IMQ2JLc6cAQIelTZxcH1MUmjppHuTMYljyDJEJtfCo7RquvKV0P8H-oPW1UVxIUEpX_3YlqFncyJ2s2M5U9IM70NOUGri6Zk79wGI0gBdYtE3fbSHRIx6S_EoeoyBZIEMOgdDx-T96UJOtUnWlM84Cw_gDa2mTMic68FWAbaXctUBhfcwSJ3S_uH1GK1zS8MwnC7U1L0gBFv8LLfwcRfY4zsOW7CStW3YZghOA85Q");
+                header.put("authorization","Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE1MTYyMzkwMjIsImV4cCI6MTYyNjIzMzIwNSwiaXNzIjoxMjM3ODR9.lb2b14Zmc4TKEm98Bu-euu-5jVBByyaL61gEkZSt5zIoOLdfxxsOpYg5TIyYO0M74qa6J3P8LIvC22zzLiWSrQOXPJRoaSzpbevP8epcM98cXhnaaqCox4VkDnWmGfh31A_Q2UY11404lqXHBavUyHfhvehUTuDWt6rUrH9Qu7FAXEhcavZb-Lj5WYI_1KFWO5Ke7mAHGuyKUUI0yvHKI7uk5xjRa6-M8hA2s2K7rfvFcjc0_ZXoDzFdwTdpO4UdrwEqwHiD6hr0mea-CoWr9c4fmJqxCX_vYPPE1f9DSqKTdH1aNvkoXELylkYR5p2TdN66qya7MNqG_Tir4tZgWQ");
 
             }else {
                 header.put("authorization","token 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");
