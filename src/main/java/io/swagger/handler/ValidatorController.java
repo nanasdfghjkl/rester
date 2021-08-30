@@ -23,8 +23,7 @@ import io.swagger.oas.inflector.models.ResponseContext;
 import io.swagger.parser.SwaggerParser;
 import io.swagger.v3.oas.models.*;
 import io.swagger.v3.oas.models.examples.Example;
-import io.swagger.v3.oas.models.media.Content;
-import io.swagger.v3.oas.models.media.MediaType;
+import io.swagger.v3.oas.models.media.*;
 import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.parameters.Parameter;
@@ -110,6 +109,7 @@ public class ValidatorController{
     static boolean rejectRedirect = StringUtils.isBlank(System.getProperty("rejectRedirect")) ? true : Boolean.parseBoolean(System.getProperty("rejectRedirect"));
 
     private String name;
+    private DependenceGraph dependenceGraph =new DependenceGraph();// 资源依赖图
     private float pathNum;//路径数
     private int endpointNum;//端点数
     private float score=100; //评分机制
@@ -940,16 +940,13 @@ public class ValidatorController{
                     }
                     for(String pathKey:paths.keySet()){
                         PathItem pathItem=paths.get(pathKey);
-                        if(pathKey.contains("/gists")){
-                            System.out.println("th");
-                        }
                         Map<String, io.swagger.v3.oas.models.Operation> operations=getAllOperationsMapInAPath(pathItem);
                         for(String method : operations.keySet()){//对于每一个操作,创建一个请求
                             if(operations.get(method)!=null && method!="delete"){//先不考虑删除操作，会影响资源的存在，因为资源之间的依赖导致请求无效
                                 io.swagger.v3.oas.models.Operation operation=operations.get(method);
                                 Map<String,String> headers=new HashMap<>();//请求头文件
-                                Map<String,Object> entity=new HashMap<>();//请求体
-                                List<Object> arrayEntity=new ArrayList<>();
+                                Map<String,Object> entity=new HashMap<>();// 请求体
+                                List<Object> arrayEntity=new ArrayList<>();// 请求体（数组形式
                                 String requestPath=pathKey;//请求路径
 
                                 List<Parameter> parameters= operation.getParameters();
@@ -1028,8 +1025,26 @@ public class ValidatorController{
                                             entity.putAll(requestContent.get("application/json").getExamples());
                                         }else{
                                             Schema schema = requestContent.get("application/json").getSchema();
-                                            if(schema!=null && schema.getType()!=null && schema.getType().equals("object") && schema.getProperties()!=null){
+                                            try{
+                                                //尝试强转为子类composedschema
+                                                // 这里的schema列表可以进行遍历，先获得第一个schema
+                                                ComposedSchema composedSchema=(ComposedSchema)schema;
+                                                schema=composedSchema.getAllOf()!=null?composedSchema.getAllOf().get(0):schema;
+                                                schema=composedSchema.getAnyOf()!=null?composedSchema.getAnyOf().get(0):schema;
+                                                schema=composedSchema.getOneOf()!=null?composedSchema.getOneOf().get(0):schema;
+                                            }catch (ClassCastException e){
+
+                                            }
+                                            boolean isArray=false;
+                                            if(schema!=null && "array".equals(schema.getType())){
+                                                isArray=true;
+                                                schema=((ArraySchema) schema).getItems();
+                                            }
+                                            if(schema!=null && "object".equals(schema.getType()) && schema.getProperties()!=null){
                                                 entity = parseSchemaToEntity(result.getOpenAPI(),schema.getProperties());
+                                                if(isArray){
+                                                    arrayEntity.add(entity);
+                                                }
                                             }
                                         }
 
@@ -1851,7 +1866,29 @@ public class ValidatorController{
                 pathlist= new ArrayList<>(paths);
                 pathEvaluate(paths,result);
 
-
+                //资源依赖分析：依赖图构建
+                for(Map.Entry<String,PathItem> entry:result.getOpenAPI().getPaths().entrySet()){
+                    String pathName=entry.getKey();
+                    PathItem pathItem=entry.getValue();
+                    dependenceGraph.addNode(pathName,pathItem);
+                    //按照层级查找依赖关系，权重为“1”
+                    String[] pathHies=pathName.split("/");
+                    for (int i = pathHies.length; i >=0; i--) {
+                        int index=pathName.indexOf(pathHies[i]);
+                        if(index>1){
+                            String father=pathName.substring(0,index-1);
+                            if(dependenceGraph.containsNode(father)){
+                                dependenceGraph.addEdge(pathName,father,"1");
+                                break;
+                            }
+                        }
+                    }
+                    //按照属性查找依赖关系，权重为“2”
+                    /*if()
+                    for(Map.Entry<String,PathItem> entry1:result.getOpenAPI().getPaths().entrySet()){
+                        if(dependenceGraph.isNodeWithFromEdge())
+                    }*/
+                }
 
                 //System.out.println(result.getOpenAPI().getSecurity());
                 //获取API security方案类型（apiKey，OAuth，http等）
@@ -3301,13 +3338,13 @@ public class ValidatorController{
             Map<String, String> header=request.getHeader();
             //指定身份认证
             if(urlString.contains("app")){
-                header.put("authorization","Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE1MTYyMzkwMjIsImV4cCI6MTYyNjIzMzIwNSwiaXNzIjoxMjM3ODR9.lb2b14Zmc4TKEm98Bu-euu-5jVBByyaL61gEkZSt5zIoOLdfxxsOpYg5TIyYO0M74qa6J3P8LIvC22zzLiWSrQOXPJRoaSzpbevP8epcM98cXhnaaqCox4VkDnWmGfh31A_Q2UY11404lqXHBavUyHfhvehUTuDWt6rUrH9Qu7FAXEhcavZb-Lj5WYI_1KFWO5Ke7mAHGuyKUUI0yvHKI7uk5xjRa6-M8hA2s2K7rfvFcjc0_ZXoDzFdwTdpO4UdrwEqwHiD6hr0mea-CoWr9c4fmJqxCX_vYPPE1f9DSqKTdH1aNvkoXELylkYR5p2TdN66qya7MNqG_Tir4tZgWQ");
+                header.put("authorization","Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiIxMjM3ODQiLCJleHAiOjE2MjY5NTg4NzMsImlhdCI6MTUxNjIzOTAyMn0.bNqGvRfoScbsjZvkSNx_hip5C5yQNNlyNkDEU_BoVDOTUqgHAUtEYeLeUyubU1BjgPb33YOdCgDLDBC8NWL1XR9tAF7WJ57qoomXq1KhXoIUYIg6EtF6fupLRQ48LvJHAJiC-f_iKDBAlH2Jqr70jvLqiPENhTzB3drHTtqfBsSeR5rQGjN0UOqivUhRb80TQlvPVePQ0MTTZOcydsWIjsogXzzXZr4p9CnGf75nG8aB9Vg9EeAUtdQjn0EnGFJPyx4Uc7UR8W5MRQzI79Dg7fBRzqRnQPkb_yEd0XhWPAsRF7coxqePRcjQz5SAT9e4iZDayvWoCpDXUCwgKdTQLg");
 
             }else {
                 header.put("authorization","token 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");
-                header.put("Accept", "application/json, */*");
-            }
 
+            }
+            header.put("Accept", "application/json, */*");
 
             /*JSONObject jsonObject=JSONObject.fromObject(request.getEntity());
             String string = jsonObject.toString();//消息体字符串*/
