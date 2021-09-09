@@ -1867,34 +1867,115 @@ public class ValidatorController{
                 pathEvaluate(paths,result);
 
                 //资源依赖分析：依赖图构建
+                OpenAPIDeserializer deserializer = new OpenAPIDeserializer();
+                Components component = result.getOpenAPI().getComponents();
+
                 for(Map.Entry<String,PathItem> entry:result.getOpenAPI().getPaths().entrySet()){
                     String pathName=entry.getKey();
                     PathItem pathItem=entry.getValue();
                     dependenceGraph.addNode(pathName,pathItem);
+                    boolean hasEdge=false;
                     //按照层级查找依赖关系，权重为“1”
                     String[] pathHies=pathName.split("/");
-                    for (int i = pathHies.length; i >=0; i--) {
+                    for (int i = pathHies.length-1; i >=0; i--) {
                         int index=pathName.indexOf(pathHies[i]);
                         if(index>1){
                             String father=pathName.substring(0,index-1);
                             if(dependenceGraph.containsNode(father)){
                                 dependenceGraph.addEdge(pathName,father,"1");
+                                hasEdge=true;
                                 break;
                             }
                         }
                     }
+                    //  已经添加的边，就跳过下面过程
+                    if(hasEdge) continue;
                     //按照属性查找依赖关系，权重为“2”
-                    /*if()
-                    for(Map.Entry<String,PathItem> entry1:result.getOpenAPI().getPaths().entrySet()){
-                        if(dependenceGraph.isNodeWithFromEdge())
-                    }*/
+                    // 路径的输入属性（路径属性）有无出现在别的路径的输出属性（消息体属性）中
+                    List<io.swagger.v3.oas.models.Operation> operations= deserializer.getAllOperationsInAPath(pathItem);//获取所有操作
+                    //获得资源名
+                    String resourceName="";// 被测路径的资源名
+                    if(pathName.contains("{")){
+                        String pathResource=StanfordNLP.removeSlash(StanfordNLP.removeBrace(pathName.substring(0,pathName.indexOf("{"))));
+                        String[] res=pathResource.split("/");
+                        resourceName=res[res.length-1];
+                    }else{
+                        String[] res=pathName.split("/");
+                        if(res.length>0)
+                            resourceName=res[res.length-1];
+                    }
+                    //整理被测路径的输入属性，扩展名称：path+para
+                    Set<String> inputParas=new HashSet<>();
+                    for(Operation operation:operations){
+                        List<Parameter> paras=operation.getParameters();
+                        if(paras!=null){
+                            for(Parameter para:paras){
+                                inputParas.add(resourceName+"_"+para.getName());
+                            }
+                        }
+                    }
+                    if(inputParas.size()>0){
+                        // 遍历其他路径的输出属性（响应体属性）中是否包含该路径的输入属性
+                        for(Map.Entry<String,PathItem> otherPath:result.getOpenAPI().getPaths().entrySet()){
+                            String otherPathName=otherPath.getKey();
+                            PathItem otherPathItem=otherPath.getValue();
+                            if(!otherPathName.equals(pathName)){
+                                //遍历输出属性：操作-》响应->content
+                                List<Operation> otherPathOps= deserializer.getAllOperationsInAPath(otherPathItem);
+                                for(Operation op:otherPathOps){
+                                    // 存在响应体 ApiResponse -> Content -> MediaType->Schema
+                                    if(op.getResponses()!=null){
+                                        for(ApiResponse res:op.getResponses().values()){
+                                            // 如果引用响应不为null，取引用响应
+                                            if(res.get$ref()!=null){
+                                                String[] ref=res.get$ref().split("/");
+                                                String responseName=ref[ref.length-1];
+                                                res=component.getResponses().get(responseName);
+                                            }
+                                            if(res.getContent()!=null){
+                                                for(MediaType mediaType:res.getContent().values()){
+                                                    if(mediaType.getSchema()!=null){
+                                                        Schema schema = mediaType.getSchema();
+                                                        // 如果引用schema不为null，使用引用schema
+                                                        if(schema.get$ref()!=null){
+                                                            String[] sch=schema.get$ref().split("/");
+                                                            schema=component.getSchemas().get(sch[sch.length-1]);
+                                                        }
+                                                        if(schema.getProperties()!=null){
+                                                            for(Object proName:schema.getProperties().keySet()){
+                                                                if(inputParas.contains((String)proName)){
+                                                                    if(!dependenceGraph.containsNode(otherPathName)){
+                                                                        dependenceGraph.addNode(otherPathName,otherPathItem);
+                                                                    }
+                                                                    // 匹配到了，添加一条边（种类为2）
+                                                                    dependenceGraph.addEdge(pathName,otherPathName,"2");
+                                                                    hasEdge=true;
+                                                                    break;
+                                                                }
+                                                            }
+                                                            if(hasEdge) break;
+                                                        }
+
+                                                    }
+                                                }
+                                                if(hasEdge) break;
+                                            }
+                                        }
+                                        if(hasEdge) break;
+                                    }
+                                }
+                                if(hasEdge) break;
+                            }
+                        }
+                    }
+
                 }
 
                 //System.out.println(result.getOpenAPI().getSecurity());
                 //获取API security方案类型（apiKey，OAuth，http等）
-                Components component = result.getOpenAPI().getComponents();
+
                 if (component!=null){
-                    Map<String, SecurityScheme> securitySchemes = result.getOpenAPI().getComponents().getSecuritySchemes();
+                    Map<String, SecurityScheme> securitySchemes = component.getSecuritySchemes();
                     if(securitySchemes!=null){
                         for (String key : securitySchemes.keySet()) {
                             this.security.add(securitySchemes.get(key).getType().toString());
@@ -1956,7 +2037,7 @@ public class ValidatorController{
                         }
                     }
 
-                    OpenAPIDeserializer deserializer = new OpenAPIDeserializer();
+//                    OpenAPIDeserializer deserializer = new OpenAPIDeserializer();
                     List<io.swagger.v3.oas.models.Operation> operationsInAPath = deserializer.getAllOperationsInAPath(result.getOpenAPI().getPaths().get(pathName));//获取所有操作
                     this.endpointNum+=operationsInAPath.size();//统计端点数
 
