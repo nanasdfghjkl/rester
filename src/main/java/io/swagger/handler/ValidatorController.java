@@ -11,6 +11,8 @@ import com.github.fge.jsonschema.main.JsonSchema;
 import com.github.fge.jsonschema.main.JsonSchemaFactory;
 import io.swagger.models.*;
 import io.swagger.models.auth.SecuritySchemeDefinition;
+import io.swagger.models.graph.DependenceGraph;
+import io.swagger.models.graph.GraphNode;
 import io.swagger.models.parameters.BodyParameter;
 import io.swagger.models.parameters.SerializableParameter;
 import io.swagger.models.properties.ArrayProperty;
@@ -1869,12 +1871,18 @@ public class ValidatorController{
                 //资源依赖分析：依赖图构建
                 OpenAPIDeserializer deserializer = new OpenAPIDeserializer();
                 Components component = result.getOpenAPI().getComponents();
-
-                for(Map.Entry<String,PathItem> entry:result.getOpenAPI().getPaths().entrySet()){
+                //构建点集
+                for(Map.Entry<String,PathItem> entry:result.getOpenAPI().getPaths().entrySet()) {
                     String pathName=entry.getKey();
                     PathItem pathItem=entry.getValue();
-                    dependenceGraph.addNode(pathName,pathItem);
-                    boolean hasEdge=false;
+                    GraphNode<PathItem> graphNode=new GraphNode(pathName,pathItem);
+                    dependenceGraph.addNode(pathName,graphNode);
+                }
+                //for(Map.Entry<String,PathItem> entry:result.getOpenAPI().getPaths().entrySet()){
+                for(Map.Entry<String,GraphNode> entry:dependenceGraph.getNodes().entrySet()){
+                    String pathName=entry.getKey();
+                    PathItem pathItem= (PathItem) entry.getValue().getPathItem();
+                    boolean hasEdge=false;// 是否添加了以该点为from的边
                     //按照层级查找依赖关系，权重为“1”
                     String[] pathHies=pathName.split("/");
                     for (int i = pathHies.length-1; i >=0; i--) {
@@ -1916,9 +1924,10 @@ public class ValidatorController{
                     }
                     if(inputParas.size()>0){
                         // 遍历其他路径的输出属性（响应体属性）中是否包含该路径的输入属性
-                        for(Map.Entry<String,PathItem> otherPath:result.getOpenAPI().getPaths().entrySet()){
+                        //for(Map.Entry<String,PathItem> otherPath:result.getOpenAPI().getPaths().entrySet()){
+                        for(Map.Entry<String,GraphNode> otherPath:dependenceGraph.getNodes().entrySet()){
                             String otherPathName=otherPath.getKey();
-                            PathItem otherPathItem=otherPath.getValue();
+                            PathItem otherPathItem=(PathItem) otherPath.getValue().getPathItem();
                             if(!otherPathName.equals(pathName)){
                                 //遍历输出属性：操作-》响应->content
                                 List<Operation> otherPathOps= deserializer.getAllOperationsInAPath(otherPathItem);
@@ -1944,9 +1953,9 @@ public class ValidatorController{
                                                         if(schema.getProperties()!=null){
                                                             for(Object proName:schema.getProperties().keySet()){
                                                                 if(inputParas.contains((String)proName)){
-                                                                    if(!dependenceGraph.containsNode(otherPathName)){
+                                                                    /*if(!dependenceGraph.containsNode(otherPathName)){
                                                                         dependenceGraph.addNode(otherPathName,otherPathItem);
-                                                                    }
+                                                                    }*/
                                                                     // 匹配到了，添加一条边（种类为2）
                                                                     dependenceGraph.addEdge(pathName,otherPathName,"2");
                                                                     hasEdge=true;
@@ -1968,6 +1977,7 @@ public class ValidatorController{
                             }
                         }
                     }
+
 
                 }
 
