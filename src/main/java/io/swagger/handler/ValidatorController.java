@@ -1878,6 +1878,7 @@ public class ValidatorController{
                     GraphNode<PathItem> graphNode=new GraphNode(pathName,pathItem);
                     dependenceGraph.addNode(pathName,graphNode);
                 }
+                //构建边集
                 //for(Map.Entry<String,PathItem> entry:result.getOpenAPI().getPaths().entrySet()){
                 for(Map.Entry<String,GraphNode> entry:dependenceGraph.getNodes().entrySet()){
                     String pathName=entry.getKey();
@@ -1980,6 +1981,8 @@ public class ValidatorController{
 
 
                 }
+                //构建子图
+                dependenceGraph.buildSubG();
 
                 //System.out.println(result.getOpenAPI().getSecurity());
                 //获取API security方案类型（apiKey，OAuth，http等）

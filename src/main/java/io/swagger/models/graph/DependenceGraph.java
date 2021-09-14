@@ -86,7 +86,11 @@ public class DependenceGraph {
      * @param big
      */
     public void unionSubG(int small,int big){
-// TODO: 2021/9/13
+
+        for(String path:subGs.get(big)){
+            addSubG(small,path);
+        }
+        subGs.remove(big);
     }
 
     /**
