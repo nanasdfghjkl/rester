@@ -11,6 +11,7 @@ public class DependenceGraph {
     private Map<String,Set<String>> edgesMap;// 边集，邻接表 <from,[to1,to2,...]>
     private LinkedList<String[]> tempEdges;// 边集操作中间结果
     private Map<Integer, Set<String>> subGs;
+    private static int subGNo=0;
     public DependenceGraph(){
         nodes=new HashMap<>();
         edges=new LinkedList<>();
@@ -69,6 +70,7 @@ public class DependenceGraph {
      * @param pathName
      */
     public void addSubG(int no,String pathName){
+        nodes.get(pathName).setSubGraphNo(no);
         if(subGs.containsKey(no)){
             subGs.get(no).add(pathName);
         }else{
@@ -92,7 +94,7 @@ public class DependenceGraph {
      * @param from
      * @return
      */
-    public Set<String> allToNode(String from){
+    public Set<String> getAllToNode(String from){
         Set<String > ans=new HashSet<>();
         Deque<String> queue=new LinkedList<>();
         for(String to:edgesMap.get(from)){
@@ -108,6 +110,40 @@ public class DependenceGraph {
             }
         }
         return ans;
+    }
+
+    public void buildSubG(){
+        for(Map.Entry<String,GraphNode> node:nodes.entrySet()){
+            String pathName=node.getKey();
+            if(node.getValue().getSubGraphNo()==-1){
+                Set<String> totemp=getAllToNode(pathName);
+                if(totemp.isEmpty()){
+                    addSubG(subGNo,pathName);
+                    subGNo++;
+                }else{
+                    int subIndex=subGNo;
+                    //得到所有to结点中最小的子图号（除-1未分配）
+                    for(String topath:totemp){
+                        if(nodes.get(topath).getSubGraphNo()>-1){
+                            subIndex=Math.min(subIndex,nodes.get(topath).getSubGraphNo());
+                        }
+                    }
+                    //将自身添加到子图中
+                    addSubG(subIndex,pathName);
+                    //将所有to结点添加到子图中
+                    for(String topath:totemp){
+                        //to结点未分配，直接添加到子图
+                        if(nodes.get(topath).getSubGraphNo()==-1){
+                            addSubG(subIndex,topath);
+                        }else if(nodes.get(topath).getSubGraphNo()!=subIndex){
+                            //to结点已分配但不是目标子图，合并到目标子图中
+                            unionSubG(subIndex,nodes.get(topath).getSubGraphNo());
+                        }
+                    }
+
+                }
+            }
+        }
     }
 
     public Map<String, GraphNode> getNodes() {
