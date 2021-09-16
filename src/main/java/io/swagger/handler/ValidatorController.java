@@ -1919,6 +1919,11 @@ public class ValidatorController{
                         List<Parameter> paras=operation.getParameters();
                         if(paras!=null){
                             for(Parameter para:paras){
+                                if(para.get$ref()!=null){
+                                    String[] ref=para.get$ref().split("/");
+                                    String paraName=ref[ref.length-1];
+                                    para=component.getParameters().get(paraName);
+                                }
                                 inputParas.add(resourceName+"_"+para.getName());
                             }
                         }
@@ -1983,6 +1988,8 @@ public class ValidatorController{
                 }
                 //构建子图
                 dependenceGraph.buildSubG();
+                Map subG=dependenceGraph.getSubGs();
+                System.out.println(subG.size());
 
                 //System.out.println(result.getOpenAPI().getSecurity());
                 //获取API security方案类型（apiKey，OAuth，http等）

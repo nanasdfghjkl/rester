@@ -10,13 +10,14 @@ public class DependenceGraph {
     private LinkedList<String[]> edges;// 边集 [from,to,weight]
     private Map<String,Set<String>> edgesMap;// 边集，邻接表 <from,[to1,to2,...]>
     private LinkedList<String[]> tempEdges;// 边集操作中间结果
-    private Map<Integer, Set<String>> subGs;
-    private static int subGNo=0;
+    private Map<Integer, Set<String>> subGs;//子图
+    private static int subGNo=0;//子图编号，初始编号为0
     public DependenceGraph(){
         nodes=new HashMap<>();
         edges=new LinkedList<>();
         tempEdges=new LinkedList<>();
         edgesMap=new HashMap<>();
+        subGs=new HashMap<>();
     }
 
     /**
@@ -101,8 +102,10 @@ public class DependenceGraph {
     public Set<String> getAllToNode(String from){
         Set<String > ans=new HashSet<>();
         Deque<String> queue=new LinkedList<>();
-        for(String to:edgesMap.get(from)){
-            queue.addLast(to);
+        if(edgesMap.containsKey(from)){
+            for(String to:edgesMap.get(from)){
+                queue.addLast(to);
+            }
         }
         while(!queue.isEmpty()){
             String temp=queue.removeFirst();
@@ -126,11 +129,15 @@ public class DependenceGraph {
                     subGNo++;
                 }else{
                     int subIndex=subGNo;
+
                     //得到所有to结点中最小的子图号（除-1未分配）
                     for(String topath:totemp){
                         if(nodes.get(topath).getSubGraphNo()>-1){
                             subIndex=Math.min(subIndex,nodes.get(topath).getSubGraphNo());
                         }
+                    }
+                    if(subIndex==subGNo){
+                        subGNo++;
                     }
                     //将自身添加到子图中
                     addSubG(subIndex,pathName);
@@ -148,6 +155,22 @@ public class DependenceGraph {
                 }
             }
         }
+    }
+
+    public Map<String, Set<String>> getEdgesMap() {
+        return edgesMap;
+    }
+
+    public LinkedList<String[]> getTempEdges() {
+        return tempEdges;
+    }
+
+    public Map<Integer, Set<String>> getSubGs() {
+        return subGs;
+    }
+
+    public static int getSubGNo() {
+        return subGNo;
     }
 
     public Map<String, GraphNode> getNodes() {
