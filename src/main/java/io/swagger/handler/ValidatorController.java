@@ -940,146 +940,199 @@ public class ValidatorController{
                         }
                         System.out.println(serverURL);
                     }
-                    for(String pathKey:paths.keySet()){
-                        PathItem pathItem=paths.get(pathKey);
-                        Map<String, io.swagger.v3.oas.models.Operation> operations=getAllOperationsMapInAPath(pathItem);
-                        for(String method : operations.keySet()){//对于每一个操作,创建一个请求
-                            if(operations.get(method)!=null && method!="delete"){//先不考虑删除操作，会影响资源的存在，因为资源之间的依赖导致请求无效
-                                io.swagger.v3.oas.models.Operation operation=operations.get(method);
-                                Map<String,String> headers=new HashMap<>();//请求头文件
-                                Map<String,Object> entity=new HashMap<>();// 请求体
-                                List<Object> arrayEntity=new ArrayList<>();// 请求体（数组形式
-                                String requestPath=pathKey;//请求路径
+                    //Map<Integer,Set<String>> subGs=new HashMap<>();//依赖子图，拷贝一份
+                    Map<String,Set<String>> edgesMap=new HashMap<>();// 边集，邻接表,拷贝一份，
 
-                                List<Parameter> parameters= operation.getParameters();
-                                Map<String,String> queryParas=new HashMap<>();//查询参数
-                                Map<String,String> pathParas=new HashMap<>();//路径参数
-                                if(parameters!=null) {
-                                    for (Parameter parameter : parameters) {
+                    //拷贝from边集
+                    for(Map.Entry<String,Set<String>> fromEdge:dependenceGraph.getEdgesMap().entrySet()){
+                        Set<String> temp=new HashSet<>();
+                        for(String path:fromEdge.getValue()){
+                            temp.add(path);
+                        }
+                        edgesMap.put(fromEdge.getKey(),temp);
+                    }
+                    for(Map.Entry<Integer,Set<String>>subGEntry:dependenceGraph.getSubGs().entrySet()){
+                        Set<String> subGNode=subGEntry.getValue();
+                        Set<String> visitedNodes=new HashSet<>();//记录遍历过的结点
+                        //按照拓扑排序将每个子图全部遍历过
+                        while(visitedNodes.size()<subGNode.size()){
+                            //for(String pathKey:paths.keySet()){
+                            for(String pathKey:subGNode){
+                                // 跳过访问过的或者存在to点（即有所依赖）的结点
+                                if(visitedNodes.contains(pathKey) || edgesMap.containsKey(pathKey)){
+                                    continue;
+                                }
+                                PathItem pathItem=paths.get(pathKey);
+                                Map<String, io.swagger.v3.oas.models.Operation> operations=getAllOperationsMapInAPath(pathItem);
+                                for(String method : operations.keySet()){//对于每一个操作,创建一个请求
+                                    if(operations.get(method)!=null && method!="delete"){//先不考虑删除操作，会影响资源的存在，因为资源之间的依赖导致请求无效
+                                        io.swagger.v3.oas.models.Operation operation=operations.get(method);
+                                        Map<String,String> headers=new HashMap<>();//请求头文件
+                                        Map<String,Object> entity=new HashMap<>();// 请求体
+                                        List<Object> arrayEntity=new ArrayList<>();// 请求体（数组形式
+                                        String requestPath=pathKey;//请求路径
+
+                                        List<Parameter> parameters= operation.getParameters();
+                                        Map<String,String> queryParas=new HashMap<>();//查询参数
+                                        Map<String,String> pathParas=new HashMap<>();//路径参数
+                                        if(parameters!=null) {
+                                            for (Parameter parameter : parameters) {
                                     /*//Swagger解析时，RefParameter会直接连接到对应属性，并生成对应的实例
                                     if(parameter.getClass().getName()=="RefParameter"){
                                         RefParameter refpara=(RefParameter)parameter;
                                         String ref=refpara.get$ref();
                                     }*/
-                                        if(parameter.get$ref()!=null){
-                                            String[] refStrings=parameter.get$ref().split("/");
-                                            parameter=componetParas.get(refStrings[refStrings.length-1]);
-                                        }
-                                        if (parameter.getRequired()!=null && parameter.getRequired()) {//必需属性
-
-                                            String paraType = parameter.getSchema().getType();
-                                            String paraName = parameter.getName();
-                                            String paraValue = "";//填充后的值
-                                            String paraIn = parameter.getIn();
-
-                                            //生成属性值
-                                            Map<String, Example> paraExamples = parameter.getExamples();//获得说明文档中的示例值
-                                            String ppname;
-                                            if (paraIn .equals("path") ) {
-                                                ppname = StanfordNLP.removeBrace(pathKey.substring(0, pathKey.indexOf("{" + paraName + "}")));
-                                            } else {
-                                                ppname = StanfordNLP.removeBrace(pathKey);
-                                            }
-                                            ppname = StanfordNLP.removeSlash(ppname);//去除多余/和尾/
-                                            String paraMapValue = "";
-                                            if (pathParameterMap.containsKey(ppname)) {
-                                                //获取对应的路径属性散列表中的属性值,先只获取第一个
-                                                if (pathParameterMap.get(ppname).get(paraName).size() > 0) {
-                                                    paraMapValue = pathParameterMap.get(ppname).get(paraName).get(0);
+                                                if(parameter.get$ref()!=null){
+                                                    String[] refStrings=parameter.get$ref().split("/");
+                                                    parameter=componetParas.get(refStrings[refStrings.length-1]);
                                                 }
+                                                if (parameter.getRequired()!=null && parameter.getRequired()) {//必需属性
 
-                                            }
-                                            //生成属性值：优先级排序：说明文档提供的枚举值，路径属性散列表，类型默认值
-                                            if (paraExamples != null) {
-                                                for (String exkey : paraExamples.keySet()) {
-                                                    paraValue = paraExamples.get(exkey).getValue().toString();
-                                                    break;
-                                                }
+                                                    String paraType = parameter.getSchema().getType();
+                                                    String paraName = parameter.getName();
+                                                    String paraValue = "";//填充后的值
+                                                    String paraIn = parameter.getIn();
 
-                                            } else if (paraMapValue != null && paraMapValue.length() != 0) {
-                                                paraValue = paraMapValue;
-                                            } else {
-                                                paraValue = getDefaultFromType(paraType, paraName).toString();
+                                                    //生成属性值
+                                                    Map<String, Example> paraExamples = parameter.getExamples();//获得说明文档中的示例值
+                                                    String ppname;
+                                                    if (paraIn .equals("path") ) {
+                                                        ppname = StanfordNLP.removeBrace(pathKey.substring(0, pathKey.indexOf("{" + paraName + "}")));
+                                                    } else {
+                                                        ppname = StanfordNLP.removeBrace(pathKey);
+                                                    }
+                                                    ppname = StanfordNLP.removeSlash(ppname);//去除多余/和尾/
+                                                    String paraMapValue = "";
+                                                    if (pathParameterMap.containsKey(ppname)) {
+                                                        //获取对应的路径属性散列表中的属性值,先只获取第一个
+                                                        if (pathParameterMap.get(ppname).get(paraName).size() > 0) {
+                                                            paraMapValue = pathParameterMap.get(ppname).get(paraName).get(0);
+                                                        }
+
+                                                    }
+                                                    //生成属性值：优先级排序：说明文档提供的枚举值，路径属性散列表，类型默认值
+                                                    if (paraExamples != null) {
+                                                        for (String exkey : paraExamples.keySet()) {
+                                                            paraValue = paraExamples.get(exkey).getValue().toString();
+                                                            break;
+                                                        }
+
+                                                    } else if (paraMapValue != null && paraMapValue.length() != 0) {
+                                                        paraValue = paraMapValue;
+                                                    } else {
+                                                        paraValue = getDefaultFromType(paraType, paraName).toString();
 //                                                paraValue=getDefaultStringFromName(paraName).toString();
-                                            }
+                                                    }
 
-                                            //根据属性位置给请求填充属性
+                                                    //根据属性位置给请求填充属性
 
-                                            if (paraIn .equals("path") ) {//路径属性
-                                                requestPath = requestPath.replace("{" + paraName + "}", paraValue);
-                                                pathParas.put(paraName, paraValue);
-                                            } else if (paraIn .equals("query") ) {//查询属性
-                                                queryParas.put(paraName, paraValue);
-                                                //pathString+="?"+paraName+"="+paraValue;
-                                            } else if (paraIn .equals("header") ) {
-                                                headers.put(paraName, paraValue);
-                                            } else if (paraIn .equals("cookie") ) {
-                                                headers.put("cookie", paraValue);
-                                            }
-                                        }
-                                    }
-                                }
-                                RequestBody requestBody = operation.getRequestBody();
-                                if(requestBody!=null) {
-                                    Content requestContent = requestBody.getContent();
-                                    if (requestContent!=null && requestContent.get("application/json")!=null) {
-                                        if(requestContent.get("application/json").getExamples()!=null){
-                                            entity.putAll(requestContent.get("application/json").getExamples());
-                                        }else{
-                                            Schema schema = requestContent.get("application/json").getSchema();
-                                            try{
-                                                //尝试强转为子类composedschema
-                                                // 这里的schema列表可以进行遍历，先获得第一个schema
-                                                ComposedSchema composedSchema=(ComposedSchema)schema;
-                                                schema=composedSchema.getAllOf()!=null?composedSchema.getAllOf().get(0):schema;
-                                                schema=composedSchema.getAnyOf()!=null?composedSchema.getAnyOf().get(0):schema;
-                                                schema=composedSchema.getOneOf()!=null?composedSchema.getOneOf().get(0):schema;
-                                            }catch (ClassCastException e){
-
-                                            }
-                                            boolean isArray=false;
-                                            if(schema!=null && "array".equals(schema.getType())){
-                                                isArray=true;
-                                                schema=((ArraySchema) schema).getItems();
-                                            }
-                                            if(schema!=null && "object".equals(schema.getType()) && schema.getProperties()!=null){
-                                                entity = parseSchemaToEntity(result.getOpenAPI(),schema.getProperties());
-                                                if(isArray){
-                                                    arrayEntity.add(entity);
+                                                    if (paraIn .equals("path") ) {//路径属性
+                                                        requestPath = requestPath.replace("{" + paraName + "}", paraValue);
+                                                        pathParas.put(paraName, paraValue);
+                                                    } else if (paraIn .equals("query") ) {//查询属性
+                                                        queryParas.put(paraName, paraValue);
+                                                        //pathString+="?"+paraName+"="+paraValue;
+                                                    } else if (paraIn .equals("header") ) {
+                                                        headers.put(paraName, paraValue);
+                                                    } else if (paraIn .equals("cookie") ) {
+                                                        headers.put("cookie", paraValue);
+                                                    }
                                                 }
                                             }
                                         }
+                                        RequestBody requestBody = operation.getRequestBody();
+                                        if(requestBody!=null) {
+                                            Content requestContent = requestBody.getContent();
+                                            if (requestContent!=null && requestContent.get("application/json")!=null) {
+                                                if(requestContent.get("application/json").getExamples()!=null){
+                                                    entity.putAll(requestContent.get("application/json").getExamples());
+                                                }else{
+                                                    Schema schema = requestContent.get("application/json").getSchema();
+                                                    try{
+                                                        //尝试强转为子类composedschema
+                                                        // 这里的schema列表可以进行遍历，先获得第一个schema
+                                                        ComposedSchema composedSchema=(ComposedSchema)schema;
+                                                        schema=composedSchema.getAllOf()!=null?composedSchema.getAllOf().get(0):schema;
+                                                        schema=composedSchema.getAnyOf()!=null?composedSchema.getAnyOf().get(0):schema;
+                                                        schema=composedSchema.getOneOf()!=null?composedSchema.getOneOf().get(0):schema;
+                                                    }catch (ClassCastException e){
 
-                                    }
-                                }
-                                if(queryParas.size()!=0){//拼接查询属性到url中
-                                    String querPart="";
-                                    for(String paraname:queryParas.keySet()){
-                                        querPart+=paraname+"="+queryParas.get(paraname)+"&";
-                                    }
-                                    querPart="?"+querPart;
-                                    querPart=querPart.substring(0,querPart.length()-1);
-                                    requestPath+=querPart;
-                                }
-                                String url=serverURL+requestPath;
-                                //System.out.println(url);
-                                //将消息体对象转化为字符串
-                                String entitystring="";
-                                if(arrayEntity.size()!=0){
-                                    JSONArray jsonArray=JSONArray.fromObject(arrayEntity);
-                                    entitystring=jsonArray.toString();
-                                }else{
-                                    JSONObject jsonObject=JSONObject.fromObject(entity);
-                                    entitystring = jsonObject.toString();
-                                }
-                                Request request=new Request(pathKey,method,url,headers,pathParas,queryParas,entitystring);
-                                dynamicValidateByURL(pathKey,request,false,false);
-                                //属性变异
+                                                    }
+                                                    boolean isArray=false;
+                                                    if(schema!=null && "array".equals(schema.getType())){
+                                                        isArray=true;
+                                                        schema=((ArraySchema) schema).getItems();
+                                                    }
+                                                    if(schema!=null && "object".equals(schema.getType()) && schema.getProperties()!=null){
+                                                        entity = parseSchemaToEntity(result.getOpenAPI(),schema.getProperties());
+                                                        if(isArray){
+                                                            arrayEntity.add(entity);
+                                                        }
+                                                    }
+                                                }
+
+                                            }
+                                        }
+                                        if(queryParas.size()!=0){//拼接查询属性到url中
+                                            String querPart="";
+                                            for(String paraname:queryParas.keySet()){
+                                                querPart+=paraname+"="+queryParas.get(paraname)+"&";
+                                            }
+                                            querPart="?"+querPart;
+                                            querPart=querPart.substring(0,querPart.length()-1);
+                                            requestPath+=querPart;
+                                        }
+                                        String url=serverURL+requestPath;
+                                        //System.out.println(url);
+                                        //将消息体对象转化为字符串
+                                        String entitystring="";
+                                        if(arrayEntity.size()!=0){
+                                            JSONArray jsonArray=JSONArray.fromObject(arrayEntity);
+                                            entitystring=jsonArray.toString();
+                                        }else{
+                                            JSONObject jsonObject=JSONObject.fromObject(entity);
+                                            entitystring = jsonObject.toString();
+                                        }
+                                        Request request=new Request(pathKey,method,url,headers,pathParas,queryParas,entitystring);
+                                        dynamicValidateByURL(pathKey,request,false,false);
+                                        //属性变异
                                 /*RandomRequestGenerator rrg=new RandomRequestGenerator(request);
                                 List<Request> randomRequests=rrg.requestGenerate();*/
+                                    }
+                                }
+
+                                //遍历后处理
+                                //将该结点加入已遍历过的结点集中
+                                visitedNodes.add(pathKey);
+                                //处理from边集
+                                for(Iterator<Map.Entry<String, Set<String>>> it=edgesMap.entrySet().iterator();it.hasNext();){
+                                    Map.Entry<String,Set<String>> fromEdge= it.next();
+                                    //删除当前结点的依赖
+                                    Set<String> toPaths=fromEdge.getValue();
+                                    if(toPaths.contains(pathKey)){
+                                        toPaths.remove(pathKey);
+                                    }
+                                    //如果from结点已经没有to结点，删除
+                                    if(toPaths.size()==0){
+                                        it.remove();
+                                    }
+                                }
+                                /*for(Map.Entry<String,Set<String>> fromEdge:edgesMap.entrySet()){
+                                    //删除当前结点的依赖
+                                    Set<String> toPaths=fromEdge.getValue();
+                                    if(toPaths.contains(pathKey)){
+                                        toPaths.remove(pathKey);
+                                    }
+                                    //如果from结点已经没有to结点，删除
+                                    if(toPaths.size()==0){
+                                        edgesMap.remove(fromEdge.getKey());
+                                    }
+
+                                }*/
                             }
                         }
                     }
+
 
 
 
@@ -1989,7 +2042,6 @@ public class ValidatorController{
                 //构建子图
                 dependenceGraph.buildSubG();
                 Map subG=dependenceGraph.getSubGs();
-                System.out.println(subG.size());
 
                 //System.out.println(result.getOpenAPI().getSecurity());
                 //获取API security方案类型（apiKey，OAuth，http等）
