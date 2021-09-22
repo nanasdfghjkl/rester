@@ -1950,8 +1950,8 @@ public class ValidatorController{
                             }
                         }
                     }
-                    //  已经添加的边，就跳过下面过程
-                    if(hasEdge) continue;
+                    //  粗粒度剪枝，粒度过粗，不使用该剪枝策略，已经添加的边，就跳过下面过程
+                    //if(hasEdge) continue;
                     //按照属性查找依赖关系，权重为“2”
                     // 路径的输入属性（路径属性）有无出现在别的路径的输出属性（消息体属性）中
                     List<io.swagger.v3.oas.models.Operation> operations= deserializer.getAllOperationsInAPath(pathItem);//获取所有操作
@@ -1981,12 +1981,17 @@ public class ValidatorController{
                             }
                         }
                     }
+                    //如果有输入属性，可能存在属性依赖，开始查找
                     if(inputParas.size()>0){
                         // 遍历其他路径的输出属性（响应体属性）中是否包含该路径的输入属性
                         //for(Map.Entry<String,PathItem> otherPath:result.getOpenAPI().getPaths().entrySet()){
                         for(Map.Entry<String,GraphNode> otherPath:dependenceGraph.getNodes().entrySet()){
                             String otherPathName=otherPath.getKey();
                             PathItem otherPathItem=(PathItem) otherPath.getValue().getPathItem();
+                            //如果otherPathName为当前结点的依赖结点（包含间接依赖，即祖孙关系），剪枝
+                            if(dependenceGraph.getEdgesMap().containsKey(pathName) && dependenceGraph.getEdgesMap().get(pathName).contains(otherPathName)){
+                                continue;
+                            }
                             if(!otherPathName.equals(pathName)){
                                 //遍历输出属性：操作-》响应->content
                                 List<Operation> otherPathOps= deserializer.getAllOperationsInAPath(otherPathItem);
