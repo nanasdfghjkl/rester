@@ -6,7 +6,7 @@ import java.util.*;
 
 public class RandomRequestGenerator {
     private Request seed;
-
+    public static Random random=new Random();
     public RandomRequestGenerator(){
         seed=null;
     }
@@ -44,4 +44,55 @@ public class RandomRequestGenerator {
         }
         return requests;
     }
+
+    /**
+     * 随机从路径属性或查询属性中删除一个属性
+     * @return
+     */
+    public Request parameterDelete(){
+        int in=random.nextInt(2);
+        if(in==0){
+            return parameterDelete("path");
+        }else {
+            return parameterDelete("query");
+        }
+    }
+
+    /**
+     * 随机删除指定位置的一个属性
+     * @param in 属性位置（path/query)
+     * @return
+     */
+    public Request parameterDelete(String in){
+        Request request =seed.clone();
+        if(in.equals("path")){
+            Map<String,String > pathParas=seed.getPathParameters();
+            int index=random.nextInt(pathParas.size());// 获得一个随机删除的索引号
+            Iterator<Map.Entry<String, String>> iterator = pathParas.entrySet().iterator();
+            while(index>0){
+                iterator.next();
+            }
+            iterator.remove();
+        }else if(in.equals("query")){
+            Map<String,String > queryParas=seed.getQueryParameters();
+            int index=random.nextInt(queryParas.size());// 获得一个随机删除的索引号
+            Iterator<Map.Entry<String, String>> iterator = queryParas.entrySet().iterator();
+            while(index>0){
+                iterator.next();
+            }
+            iterator.remove();
+        }
+        return request;
+    }
+    public Request parameterType(){
+        Request request =seed.clone();
+        // TODO: 2021/9/23
+        return request;
+    }
+    public Request parameterFormat(){
+        Request request =seed.clone();
+        // TODO: 2021/9/23
+        return request;
+    }
+
 }
