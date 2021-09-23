@@ -33,6 +33,21 @@ public class Request {
         this.pathParameters=request.getPathParameters();
         this.queryParameters=request.getQueryParameters();
     }
+    public Request clone() {
+        Map<String,String> headertemp=new HashMap<>();
+        for(Map.Entry<String,String> header:header.entrySet()){
+            headertemp.put(header.getKey(),header.getValue());
+        }
+        Map<String,String> pathParameterstemp=new HashMap<>();
+        for(Map.Entry<String,String> header:pathParameters.entrySet()){
+            headertemp.put(header.getKey(),header.getValue());
+        }
+        Map<String,String> queryParameterstemp=new HashMap<>();
+        for(Map.Entry<String,String> header:queryParameters.entrySet()){
+            headertemp.put(header.getKey(),header.getValue());
+        }
+        return new Request(path,method,url,headertemp,pathParameterstemp,queryParameterstemp,entity);
+    }
 
     public String getPath() {
         return path;
