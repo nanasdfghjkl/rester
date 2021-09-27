@@ -8,6 +8,7 @@ import java.util.Random;
  * 动态检测请求类
  */
 public class Request {
+    private String server;
     private String path;
     private String url;
     private Map<String,String> header;
@@ -16,9 +17,10 @@ public class Request {
     private Map<String ,String> pathParameters;
     private Map<String ,String> queryParameters;
 
-    public Request(String path,String method,String url, Map<String, String> header, Map<String, String> pathParameters,Map<String, String> queryParameters,String entity){
+    public Request(String server,String path,String method, Map<String, String> header, Map<String, String> pathParameters,Map<String, String> queryParameters,String entity){
+        this.server=server;
+        this.path=path;
         this.method=method;
-        this.url=url;
         this.header=header;
         this.entity=entity;
         this.pathParameters=pathParameters;
@@ -46,7 +48,9 @@ public class Request {
         for(Map.Entry<String,String> header:queryParameters.entrySet()){
             headertemp.put(header.getKey(),header.getValue());
         }
-        return new Request(path,method,url,headertemp,pathParameterstemp,queryParameterstemp,entity);
+        Request request= new Request(server,path,method,headertemp,pathParameterstemp,queryParameterstemp,entity);
+        request.setUrl(url);
+        return request;
     }
 
     public String getPath() {
@@ -103,5 +107,29 @@ public class Request {
 
     public String getEntity() {
         return entity;
+    }
+
+    /**
+     * 构建url,替换路径属性，添加查询属性
+     */
+    public void buildURL(){
+        String requestPath=path;
+        //替换路径属性
+        if(!pathParameters.isEmpty()){
+            for(Map.Entry<String,String> para:pathParameters.entrySet()){
+                requestPath = requestPath.replace("{" + para.getKey() + "}", para.getValue());
+            }
+        }
+        //添加查询属性
+        if(!queryParameters.isEmpty()){//拼接查询属性到url中
+            String querPart="";
+            for(Map.Entry<String,String> para:queryParameters.entrySet()){
+                querPart+=para.getKey()+"="+para.getValue()+"&";
+            }
+            querPart="?"+querPart;
+            querPart=querPart.substring(0,querPart.length()-1);
+            requestPath+=querPart;
+        }
+        url=server+requestPath;
     }
 }
