@@ -887,7 +887,7 @@ public class ValidatorController{
                             Request request=new Request(pathString,method,url,headers,pathParas,queryParas,entitystring);
                             dynamicValidateByURL(pathString,request,false,false);
                             //属性变异
-                            RandomRequestGenerator rrg=new RandomRequestGenerator(request);
+                            RequestGenerator rrg=new RequestGenerator(request);
                             List<Request> randomRequests=rrg.requestGenerate();
                         }
                     }
@@ -1027,11 +1027,10 @@ public class ValidatorController{
                                                     //根据属性位置给请求填充属性
 
                                                     if (paraIn .equals("path") ) {//路径属性
-                                                        requestPath = requestPath.replace("{" + paraName + "}", paraValue);
+                                                        //requestPath = requestPath.replace("{" + paraName + "}", paraValue);
                                                         pathParas.put(paraName, paraValue);
                                                     } else if (paraIn .equals("query") ) {//查询属性
                                                         queryParas.put(paraName, paraValue);
-                                                        //pathString+="?"+paraName+"="+paraValue;
                                                     } else if (paraIn .equals("header") ) {
                                                         headers.put(paraName, paraValue);
                                                     } else if (paraIn .equals("cookie") ) {
@@ -1073,7 +1072,7 @@ public class ValidatorController{
 
                                             }
                                         }
-                                        if(queryParas.size()!=0){//拼接查询属性到url中
+                                        /*if(queryParas.size()!=0){//拼接查询属性到url中
                                             String querPart="";
                                             for(String paraname:queryParas.keySet()){
                                                 querPart+=paraname+"="+queryParas.get(paraname)+"&";
@@ -1082,8 +1081,7 @@ public class ValidatorController{
                                             querPart=querPart.substring(0,querPart.length()-1);
                                             requestPath+=querPart;
                                         }
-                                        String url=serverURL+requestPath;
-                                        //System.out.println(url);
+                                        String url=serverURL+requestPath;*/
                                         //将消息体对象转化为字符串
                                         String entitystring="";
                                         if(arrayEntity.size()!=0){
@@ -1093,7 +1091,8 @@ public class ValidatorController{
                                             JSONObject jsonObject=JSONObject.fromObject(entity);
                                             entitystring = jsonObject.toString();
                                         }
-                                        Request request=new Request(pathKey,method,url,headers,pathParas,queryParas,entitystring);
+                                        Request request=new Request(serverURL,pathKey,method,headers,pathParas,queryParas,entitystring);
+                                        request.buildURL();
                                         dynamicValidateByURL(pathKey,request,false,false);
                                         //属性变异
                                 /*RandomRequestGenerator rrg=new RandomRequestGenerator(request);
