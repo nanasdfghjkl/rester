@@ -1,5 +1,6 @@
 package io.swagger.handler;
 
+import com.mifmif.common.regex.Generex;
 import io.swagger.models.Request;
 
 import java.util.*;
@@ -7,6 +8,7 @@ import java.util.*;
 public class RequestGenerator {
     private Request seed;
     public static Random random=new Random();
+    ConfigManager configManager=ConfigManager.getInstance();
     public RequestGenerator(){
         seed=null;
     }
@@ -59,7 +61,12 @@ public class RequestGenerator {
             Request newRequest=seed.clone();
             Iterator<Map.Entry<String,String>> iterator=seed.getPathParameters().entrySet().iterator();
             while (iterator.hasNext()){// 遍历路径属性
+                //rate概率进行变异
+                if(random.nextInt(100)>rate){
+                    continue;
+                }
                 Map.Entry<String,String> paraEntry=iterator.next();
+                //指定变异类型
                 if(fuzzingType.equals("delete")){
                     iterator.remove();
                 }else if(fuzzingType.equals("type")){
@@ -72,6 +79,10 @@ public class RequestGenerator {
             }
             Iterator<Map.Entry<String,String>> iterator1=seed.getQueryParameters().entrySet().iterator();
             while (iterator1.hasNext()){// 遍历查询属性
+                //rate概率进行变异
+                if(random.nextInt(100)>rate){
+                    continue;
+                }
                 Map.Entry<String,String> paraEntry=iterator.next();
                 if(fuzzingType.equals("delete")){
                     iterator.remove();
@@ -136,24 +147,65 @@ public class RequestGenerator {
      */
     public Object parameterType(String oldValue){
         Object fuzzingValue="";
-        // TODO: 2021/9/23
         int type=random.nextInt(4);
         //默认值进行变异
-        if(type==0){
+        if(type==0){// integer
             fuzzingValue=1;
-        }else if(type==1){
-            fuzzingValue=0.1;
-        }else if(type==2){
+        }else if(type==1){// number(float,double)
+            fuzzingValue=0.1f;
+        }else if(type==2){// String
             fuzzingValue="rester";
-        }else if(type==3){
+        }else if(type==3){// boolean
             fuzzingValue=true;
         }
         return fuzzingValue;
     }
+
+    /**
+     * 格式变异
+     * ①Integer:int32/int64
+     * 利用边界值、随机值实现该变异
+     * ②Number:float/double
+     * 利用边界值、随机值实现该变异
+     * ③String:byte/binary/date/自定义含语义信息的格式Email/url等
+     * 对每个格式构建小字典来实现变异
+     * 从格式的正则表达式生成随机值
+     * @param oldValue
+     * @return
+     */
     public Object parameterFormat(String oldValue){
-        Request request =seed.clone();
-        // TODO: 2021/9/23
-        return request;
+        Object fuzzingValue="";
+        int type=random.nextInt(4);
+        //默认值,随机值进行变异
+        if(type==0){// integer
+            fuzzingValue=random.nextInt();
+        }else if(type==1){// number(float,double)
+            fuzzingValue=random.nextDouble();
+        }else if(type==2){// String
+            int stringFormat=random.nextInt(10);
+            String[] formats=new String[]{"UUID","DATE","URL","EMAIL","NO"};
+            fuzzingValue=formatGenerate(formats[random.nextInt(formats.length)]);
+        }else if(type==3){// boolean
+            fuzzingValue=random.nextBoolean();
+        }
+        return fuzzingValue;
     }
 
+    /**
+     * 随机生成一个指定格式format的值（字典值或者正则表达式生成）
+     * @param format
+     * @return
+     */
+    public String formatGenerate(String format){
+        format=format.toUpperCase();
+        String[] values=configManager.getValue(format).split(",");
+        if(format.equals("UUID")){// 如果是UUID格式，返回默认字典值或随机生成UUID
+            return random.nextBoolean()?values[random.nextInt(values.length)]:UUID.randomUUID().toString();
+        }else if(format.equals("NO")){
+            return random.nextBoolean()?values[random.nextInt(values.length)]: String.valueOf(random.nextInt());
+        }
+        String reg="REGEX_"+format;
+        // 返回字典值或者使用正则表达式反向生成随机值
+        return random.nextBoolean()?values[random.nextInt(values.length)]:new Generex(configManager.getValue(reg)).random();
+    }
 }
