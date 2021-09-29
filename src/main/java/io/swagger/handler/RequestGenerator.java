@@ -59,7 +59,7 @@ public class RequestGenerator {
         List<Request> requests=new ArrayList<>();
         while(times>0){// 变异times次
             Request newRequest=seed.clone();
-            Iterator<Map.Entry<String,String>> iterator=seed.getPathParameters().entrySet().iterator();
+            Iterator<Map.Entry<String,String>> iterator=newRequest.getPathParameters().entrySet().iterator();
             while (iterator.hasNext()){// 遍历路径属性
                 //rate概率进行变异
                 if(random.nextInt(100)>rate){
@@ -77,7 +77,7 @@ public class RequestGenerator {
                     newRequest.getPathParameters().put(paraEntry.getKey(),fuzzingValue.toString());
                 }
             }
-            Iterator<Map.Entry<String,String>> iterator1=seed.getQueryParameters().entrySet().iterator();
+            Iterator<Map.Entry<String,String>> iterator1=newRequest.getQueryParameters().entrySet().iterator();
             while (iterator1.hasNext()){// 遍历查询属性
                 //rate概率进行变异
                 if(random.nextInt(100)>rate){
@@ -96,6 +96,8 @@ public class RequestGenerator {
             }
             //变异之后重建请求url
             newRequest.buildURL();
+            requests.add(newRequest);
+            times--;
         }
         return requests;
     }
@@ -121,7 +123,7 @@ public class RequestGenerator {
     public Request parameterDelete(String in){
         Request request =seed.clone();
         if(in.equals("path")){
-            Map<String,String > pathParas=seed.getPathParameters();
+            Map<String,String > pathParas=request.getPathParameters();
             int index=random.nextInt(pathParas.size());// 获得一个随机删除的索引号
             Iterator<Map.Entry<String, String>> iterator = pathParas.entrySet().iterator();
             while(index>0){
@@ -129,7 +131,7 @@ public class RequestGenerator {
             }
             iterator.remove();
         }else if(in.equals("query")){
-            Map<String,String > queryParas=seed.getQueryParameters();
+            Map<String,String > queryParas=request.getQueryParameters();
             int index=random.nextInt(queryParas.size());// 获得一个随机删除的索引号
             Iterator<Map.Entry<String, String>> iterator = queryParas.entrySet().iterator();
             while(index>0){
@@ -137,6 +139,7 @@ public class RequestGenerator {
             }
             iterator.remove();
         }
+        request.buildURL();
         return request;
     }
 
@@ -183,7 +186,7 @@ public class RequestGenerator {
             fuzzingValue=random.nextDouble();
         }else if(type==2){// String
             int stringFormat=random.nextInt(10);
-            String[] formats=new String[]{"UUID","DATE","URL","EMAIL","NO"};
+            String[] formats=new String[]{"UUID","DATE","URI","EMAIL","NO"};
             fuzzingValue=formatGenerate(formats[random.nextInt(formats.length)]);
         }else if(type==3){// boolean
             fuzzingValue=random.nextBoolean();
@@ -197,6 +200,9 @@ public class RequestGenerator {
      * @return
      */
     public String formatGenerate(String format){
+        if(format.equals("URI")){
+            System.out.println("that's it");
+        }
         format=format.toUpperCase();
         String[] values=configManager.getValue(format).split(",");
         if(format.equals("UUID")){// 如果是UUID格式，返回默认字典值或随机生成UUID
@@ -206,6 +212,13 @@ public class RequestGenerator {
         }
         String reg="REGEX_"+format;
         // 返回字典值或者使用正则表达式反向生成随机值
-        return random.nextBoolean()?values[random.nextInt(values.length)]:new Generex(configManager.getValue(reg)).random();
+        String ans="";
+        if(random.nextBoolean()){
+            ans=values[random.nextInt(values.length)];
+        }else {
+            String regex=configManager.getValue(reg);
+            ans=new Generex(regex).random();
+        }
+        return ans;
     }
 }

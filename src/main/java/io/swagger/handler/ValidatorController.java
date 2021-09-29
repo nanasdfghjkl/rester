@@ -1094,7 +1094,25 @@ public class ValidatorController{
                                         Request request=new Request(serverURL,pathKey,method,headers,pathParas,queryParas,entitystring);
                                         request.buildURL();
                                         dynamicValidateByURL(pathKey,request,false,false);
-                                        //属性变异
+                                        //属性变异(路径属性或查询属性不为空时进行）
+                                        if(!request.getQueryParameters().isEmpty() || !request.getPathParameters().isEmpty()) {
+                                            RequestGenerator requestGenerator = new RequestGenerator(request);
+                                            //进行delete变异
+                                            List<Request> fuzzingRequests = requestGenerator.paraFuzzingByRate("delete", 10, 80);
+                                            for (Request re : fuzzingRequests) {
+                                                dynamicValidateByURL(pathKey, re, false, false);
+                                            }
+                                            //进行type变异
+                                            fuzzingRequests = requestGenerator.paraFuzzingByRate("type", 10, 80);
+                                            for (Request re : fuzzingRequests) {
+                                                dynamicValidateByURL(pathKey, re, false, false);
+                                            }
+                                            //进行format变异
+                                            fuzzingRequests = requestGenerator.paraFuzzingByRate("format", 10, 80);
+                                            for (Request re : fuzzingRequests) {
+                                                dynamicValidateByURL(pathKey, re, false, false);
+                                            }
+                                        }
                                 /*RandomRequestGenerator rrg=new RandomRequestGenerator(request);
                                 List<Request> randomRequests=rrg.requestGenerate();*/
                                     }
