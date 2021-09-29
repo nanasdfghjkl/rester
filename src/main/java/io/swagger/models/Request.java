@@ -44,11 +44,11 @@ public class Request {
         }
         Map<String,String> pathParameterstemp=new HashMap<>();
         for(Map.Entry<String,String> header:pathParameters.entrySet()){
-            headertemp.put(header.getKey(),header.getValue());
+            pathParameterstemp.put(header.getKey(),header.getValue());
         }
         Map<String,String> queryParameterstemp=new HashMap<>();
         for(Map.Entry<String,String> header:queryParameters.entrySet()){
-            headertemp.put(header.getKey(),header.getValue());
+            queryParameterstemp.put(header.getKey(),header.getValue());
         }
         Request request= new Request(server,path,method,headertemp,pathParameterstemp,queryParameterstemp,entity);
         request.setUrl(url);
