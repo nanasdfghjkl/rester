@@ -1,5 +1,7 @@
 package io.swagger.models;
 
+import io.swagger.handler.StanfordNLP;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
@@ -120,6 +122,8 @@ public class Request {
                 requestPath = requestPath.replace("{" + para.getKey() + "}", para.getValue());
             }
         }
+        requestPath = StanfordNLP.removeBrace(requestPath);
+        requestPath = StanfordNLP.removeSlash(requestPath);
         //添加查询属性
         if(!queryParameters.isEmpty()){//拼接查询属性到url中
             String querPart="";
