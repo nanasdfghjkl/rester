@@ -83,7 +83,7 @@ public class RequestGenerator {
                 if(random.nextInt(100)>rate){
                     continue;
                 }
-                Map.Entry<String,String> paraEntry=iterator.next();
+                Map.Entry<String,String> paraEntry=iterator1.next();
                 if(fuzzingType.equals("delete")){
                     iterator.remove();
                 }else if(fuzzingType.equals("type")){
