@@ -103,6 +103,38 @@ public class RequestGenerator {
     }
 
     /**
+     * 头文件属性变异
+     * @param fuzzingType 只进行delete变异
+     * @param times
+     * @param rate
+     * @return
+     */
+    public List<Request> headerFuzzingByRate(String fuzzingType, int times, int rate) {
+        List<Request> requests=new ArrayList<>();
+        while(times>0){// 变异times次
+            Request newRequest=seed.clone();
+            Iterator<Map.Entry<String,String>> iterator=newRequest.getHeader().entrySet().iterator();
+            while (iterator.hasNext()){// 遍历路径属性
+                //rate概率进行变异
+                if(random.nextInt(100)>rate){
+                    continue;
+                }
+                Map.Entry<String,String> paraEntry=iterator.next();
+                //指定变异类型
+                if(fuzzingType.equals("delete")){
+                    iterator.remove();
+                }
+            }
+            //变异之后重建请求url
+            newRequest.buildURL();
+            requests.add(newRequest);
+            times--;
+        }
+        return requests;
+    }
+
+
+    /**
      * 随机从路径属性或查询属性中删除一个属性
      * @return
      */
@@ -221,4 +253,7 @@ public class RequestGenerator {
         }
         return ans;
     }
+
+
+
 }
