@@ -128,8 +128,8 @@ public class RequestGenerator {
                     iterator.remove();
                 }
             }
-            //变异之后重建请求url
-            newRequest.buildURL();
+            //变异之后重建请求url，头文件变异不需要重组url
+            //newRequest.buildURL();
             requests.add(newRequest);
             times--;
         }
