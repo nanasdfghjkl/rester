@@ -1,12 +1,15 @@
 package io.swagger.handler;
 
 import com.mifmif.common.regex.Generex;
+import com.sun.xml.bind.v2.util.QNameMap;
 import io.swagger.models.Request;
+import net.sf.json.JSONArray;
+import net.sf.json.JSONObject;
 
 import java.util.*;
 
 public class RequestGenerator {
-    private Request seed;
+    private static Request seed;
     public static Random random=new Random();
     ConfigManager configManager=ConfigManager.getInstance();
     public RequestGenerator(){
@@ -133,6 +136,129 @@ public class RequestGenerator {
         return requests;
     }
 
+    /**
+     * 消息体变异方案
+     *
+     * @param entitystring
+     * @param fuzzingType:delete,type
+     * @param times
+     * @return
+     */
+    public List<Request> bodyFuzzing(String entitystring, String fuzzingType, int times) {
+        List<Request> requests=new ArrayList<>();
+        while(times>0) {// 变异times次
+            Request newRequest = seed.clone();
+            newRequest.setEntity(entityFuzzing(entitystring,fuzzingType));
+            requests.add(newRequest);
+            times--;
+        }
+        return requests;
+
+    }
+
+    /**
+     * 消息体元素变异
+     * @param entitystring
+     * @param fuzzingType
+     * @return
+     */
+    public String entityFuzzing(String entitystring, String fuzzingType) {
+        Boolean flag=random.nextBoolean();
+        String fuzzingResult="";
+        Boolean isArray=false;
+        if((entitystring.startsWith("{") || entitystring.startsWith("[")) && flag){//对象类型或数组类型
+           //深入子结构变异
+            JSONArray jsonArray=new JSONArray();
+            if(entitystring.startsWith("[")){
+                jsonArray=JSONArray.fromObject(entitystring);
+                isArray=true;
+            }else if (entitystring.startsWith("{")){
+                JSONObject jsonObject=JSONObject.fromObject(entitystring);
+                jsonArray.add(jsonObject);
+            }
+            for (int i = 0; i < jsonArray.size(); i++) {
+                JSONObject object = jsonArray.getJSONObject(i);
+                Map map=new HashMap();
+                for(Object key:object.keySet()){
+                    map.put(key,object.get(key));
+                }
+                //进行变异
+                Iterator<Map.Entry> it=map.entrySet().iterator();
+                while(it.hasNext()){
+                //for(Object key:object.keySet()){
+                    Map.Entry entityEntry=it.next();
+                    String value=entityEntry.getValue().toString();
+                    //String value=object.get(key).toString();
+                    //对于每一个子元素进行嵌套变异
+                    String fuzzingEntity=entityFuzzing(value, fuzzingType);//变异后的消息体子结构
+                    if(fuzzingEntity==""){
+                        //it.remove();
+                        object.remove(entityEntry.getKey());
+                    }else {
+                        entityEntry.setValue(fuzzingEntity);
+                        object.put(entityEntry.getKey(),fuzzingEntity);
+                    }
+
+                }
+
+            }
+            if(isArray){
+                fuzzingResult= jsonArray.toString();
+            }else {
+                fuzzingResult=jsonArray.get(0).toString();
+            }
+
+
+        }else{//基本类型
+            //基本类型直接变异
+            if(fuzzingType.equals("delete")){
+                fuzzingResult= "";
+            }else if(fuzzingType.equals("type")){
+                fuzzingResult= parameterType(entitystring).toString();
+            }
+        }
+
+        return fuzzingResult;
+    }
+
+    private List<Request> bodyFuzzing(String entitystring, String fuzzingType) {
+        List<Request> requests=new ArrayList<>();
+        Request newRequest=seed.clone();
+        Boolean flag = random.nextBoolean();
+        if(entitystring.startsWith("{") || entitystring.startsWith("[")){
+            if (flag) {//对当前整体进行变异
+                if(fuzzingType.equals("delete")){
+                    newRequest.setEntity("");
+                }else if(fuzzingType.equals("type")){
+                    newRequest.setEntity("rester");
+                }
+                requests.add(newRequest);
+            } else {//深入子结构变异
+                JSONArray jsonArray=null;
+                if(entitystring.startsWith("[")){
+                    jsonArray=JSONArray.fromObject(entitystring);
+                }else if (entitystring.startsWith("{")){
+                    JSONObject jsonObject=JSONObject.fromObject(entitystring);
+                    jsonArray.add(jsonObject);
+                }
+                for (int i = 0; i < jsonArray.size(); i++) {
+                    JSONObject object = jsonArray.getJSONObject(i);
+                    //进行变异
+                    for(Object key:object.keySet()){
+                        String value=object.get(key).toString();
+                        //对于每一个子元素进行嵌套变异
+                        List<Request> fuzzingRequests =bodyFuzzing(value, fuzzingType);
+                        requests.addAll(fuzzingRequests);
+                    }
+
+                }
+            }
+        }else{
+
+        }
+
+        return requests;
+    }
 
     /**
      * 随机从路径属性或查询属性中删除一个属性
