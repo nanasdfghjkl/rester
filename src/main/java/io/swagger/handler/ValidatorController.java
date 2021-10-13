@@ -1094,9 +1094,10 @@ public class ValidatorController{
                                         Request request=new Request(serverURL,pathKey,method,headers,pathParas,queryParas,entitystring);
                                         request.buildURL();
                                         dynamicValidateByURL(pathKey,request,false,false);
+                                        //开始变异
+                                        RequestGenerator requestGenerator = new RequestGenerator(request);
                                         //属性变异(路径属性或查询属性不为空时进行）
                                         if(!request.getQueryParameters().isEmpty() || !request.getPathParameters().isEmpty()) {
-                                            RequestGenerator requestGenerator = new RequestGenerator(request);
                                             //进行delete变异
                                             List<Request> fuzzingRequests = requestGenerator.paraFuzzingByRate("delete", 10, 80);
                                             for (Request re : fuzzingRequests) {
@@ -1112,6 +1113,18 @@ public class ValidatorController{
                                             for (Request re : fuzzingRequests) {
                                                 dynamicValidateByURL(pathKey, re, false, false);
                                             }
+                                        }
+                                        //头文件变异，只进行delete变异
+                                        if(!request.getHeader().isEmpty()){
+                                            //进行delete变异
+                                            List<Request> fuzzingRequests = requestGenerator.headerFuzzingByRate("delete", 10, 80);
+                                            for (Request re : fuzzingRequests) {
+                                                dynamicValidateByURL(pathKey, re, false, false);
+                                            }
+                                        }
+                                        //消息体不为空的话，消息体变异
+                                        if(entitystring!=""){
+                                            List<Request> res=requestGenerator.bodyFuzzing(entitystring,"delete",10);
                                         }
                                 /*RandomRequestGenerator rrg=new RandomRequestGenerator(request);
                                 List<Request> randomRequests=rrg.requestGenerate();*/
