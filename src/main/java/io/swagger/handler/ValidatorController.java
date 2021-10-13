@@ -1124,7 +1124,10 @@ public class ValidatorController{
                                         }
                                         //消息体不为空的话，消息体变异
                                         if(entitystring!=""){
-                                            List<Request> res=requestGenerator.bodyFuzzing(entitystring,"delete",10);
+                                            List<Request> fuzzingRequests=requestGenerator.bodyFuzzing(entitystring,"delete",10);
+                                            for (Request re : fuzzingRequests) {
+                                                dynamicValidateByURL(pathKey, re, false, false);
+                                            }
                                         }
                                 /*RandomRequestGenerator rrg=new RandomRequestGenerator(request);
                                 List<Request> randomRequests=rrg.requestGenerate();*/

@@ -2,6 +2,7 @@ package com.rester;
 
 import com.mifmif.common.regex.Generex;
 import io.swagger.handler.ConfigManager;
+import io.swagger.handler.RequestGenerator;
 import io.swagger.handler.ValidatorController;
 import io.swagger.oas.inflector.models.RequestContext;
 import org.springframework.boot.SpringApplication;
@@ -34,12 +35,16 @@ public class ResterApplication {
     public static void main(String[] args) {
 
         SpringApplication.run(ResterApplication.class, args);
-
-        /*ConfigManager configManager=ConfigManager.getInstance();
+        RequestGenerator requestGenerator=new RequestGenerator();
         for (int i = 0; i < 10; i++) {
-            System.out.println("config "+configManager.getValue("REGEX_URI"));
-            System.out.println(new Generex(configManager.getValue("REGEX_URI")).random());
-        }*/
+            String result=requestGenerator.entityFuzzing("{\"key\":\"value\",\"key1\":{\"key2\":1},\"key3\":{\"key4\":2}}","delete");
+            System.out.println(result);
+        }
+        for (int i = 0; i < 10; i++) {
+            String result=requestGenerator.entityFuzzing("{\"key\":\"value\",\"key1\":{\"key2\":1},\"key3\":{\"key4\":2}}","type");
+            System.out.println(result);
+        }
+
 
 
         ValidatorController validator = new ValidatorController();
