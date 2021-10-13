@@ -221,44 +221,6 @@ public class RequestGenerator {
         return fuzzingResult;
     }
 
-    private List<Request> bodyFuzzing(String entitystring, String fuzzingType) {
-        List<Request> requests=new ArrayList<>();
-        Request newRequest=seed.clone();
-        Boolean flag = random.nextBoolean();
-        if(entitystring.startsWith("{") || entitystring.startsWith("[")){
-            if (flag) {//对当前整体进行变异
-                if(fuzzingType.equals("delete")){
-                    newRequest.setEntity("");
-                }else if(fuzzingType.equals("type")){
-                    newRequest.setEntity("rester");
-                }
-                requests.add(newRequest);
-            } else {//深入子结构变异
-                JSONArray jsonArray=null;
-                if(entitystring.startsWith("[")){
-                    jsonArray=JSONArray.fromObject(entitystring);
-                }else if (entitystring.startsWith("{")){
-                    JSONObject jsonObject=JSONObject.fromObject(entitystring);
-                    jsonArray.add(jsonObject);
-                }
-                for (int i = 0; i < jsonArray.size(); i++) {
-                    JSONObject object = jsonArray.getJSONObject(i);
-                    //进行变异
-                    for(Object key:object.keySet()){
-                        String value=object.get(key).toString();
-                        //对于每一个子元素进行嵌套变异
-                        List<Request> fuzzingRequests =bodyFuzzing(value, fuzzingType);
-                        requests.addAll(fuzzingRequests);
-                    }
-
-                }
-            }
-        }else{
-
-        }
-
-        return requests;
-    }
 
     /**
      * 随机从路径属性或查询属性中删除一个属性
