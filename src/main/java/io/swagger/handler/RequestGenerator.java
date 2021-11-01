@@ -320,9 +320,7 @@ public class RequestGenerator {
      * @return
      */
     public String formatGenerate(String format){
-        if(format.equals("URI")){
-            System.out.println("that's it");
-        }
+
         format=format.toUpperCase();
         String[] values=configManager.getValue(format).split(",");
         if(format.equals("UUID")){// 如果是UUID格式，返回默认字典值或随机生成UUID
