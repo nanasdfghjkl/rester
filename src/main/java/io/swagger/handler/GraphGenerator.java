@@ -17,7 +17,7 @@ public class GraphGenerator {
      * @return
      */
     List<String[]> edgeDrop(int rate){
-        int index=(100-rate)/100*graph.size();
+        int index= (100-rate)*graph.size()/100;
         Collections.shuffle(graph);//乱序
         return graph.subList(0,index);//子集
     }
