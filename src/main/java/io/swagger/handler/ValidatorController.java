@@ -176,6 +176,7 @@ public class ValidatorController{
 
     private Map<String,Integer> status=new HashMap<>();//状态码使用情况的统计
     private int[] statusUsage;//状态码使用情况（端点级别 是否使用各类状态码
+    private Map<String,Map<String,Set<String>>> statusMap;//状态码集合
     private int dotCountInServer;//server中版本号的.数，用来判断是否语义版本号
     private int dotCountInPath;//path中版本号的.数，用来判断是否语义版本号
     private boolean semanticVersion=false;//是否使用语义版本号
@@ -2424,6 +2425,7 @@ public class ValidatorController{
                 int x2s=0,x3s=0,x4s=0,x5s=0;
                 for(String pathName : result.getOpenAPI().getPaths().keySet()){
                     //path-》operation-》parameters
+                    Map<String,Set<String>> pathStatus=new HashMap<>();//operation,set{status}
                     if(result.getOpenAPI().getPaths().get(pathName).getParameters()!=null){
                         parameters.addAll(result.getOpenAPI().getPaths().get(pathName).getParameters());//路径级别属性加入属性列表
 
@@ -2445,8 +2447,13 @@ public class ValidatorController{
 //                    OpenAPIDeserializer deserializer = new OpenAPIDeserializer();
                     List<io.swagger.v3.oas.models.Operation> operationsInAPath = deserializer.getAllOperationsInAPath(result.getOpenAPI().getPaths().get(pathName));//获取所有操作
                     this.endpointNum+=operationsInAPath.size();//统计端点数
-
-                    for(io.swagger.v3.oas.models.Operation operation:operationsInAPath){
+                    Map<String,Operation> operationMap=getAllOperationsMapInAPath(result.getOpenAPI().getPaths().get(pathName));
+                    for(Map.Entry<String,Operation> operationEntry:operationMap.entrySet()){
+                        Operation operation=operationEntry.getValue();
+                        String operationName=operationEntry.getKey();
+                    /*}
+                    for(io.swagger.v3.oas.models.Operation operation:operationsInAPath){*/
+                        Set<String> operationStatus=new HashSet<>();//操作状态码集合
                         boolean x2=false;
                         boolean x3=false;
                         boolean x4=false;
@@ -2473,6 +2480,8 @@ public class ValidatorController{
 
                         if(operation.getResponses()!=null){
                             for(String s:operation.getResponses().keySet()){
+                                //将操作下的所有状态码加入集合
+                                operationStatus.add(s);
                                 if(s.startsWith("2")){
                                     x2=true;
                                 }else if(s.startsWith("3")){
@@ -2518,7 +2527,11 @@ public class ValidatorController{
                         x3s+=x3?1:0;
                         x4s+=x4?1:0;
                         x5s+=x5?1:0;
+                        //将操作-状态码集合 加入路径状态码集合
+                        pathStatus.put(operationName,operationStatus);
                     }
+                    //将路径状态集合添加到状态码集合中
+                    statusMap.put(pathName,pathStatus);
                 }
                 hasStrongCacheStatic=hasCacheControlStatic || hasDateStatic || hasExpiresStatic;
                 hasEtagStatic=this.hasEtagStatic || hasLastModifiedStatic;
@@ -3029,6 +3042,7 @@ public class ValidatorController{
         addToOperationsList(operations, pathObj.getHead());
         return operations;
     }
+
 
     /**
      * OAS2规范 获取一个路径中的所有操作Map
@@ -4006,6 +4020,17 @@ public class ValidatorController{
         return;
     }
 
+    /**
+     * 对响应消息进行检查：
+     * 记录状态码；
+     * 对头文件进行检测；
+     * 对消息体进行检测；
+     * @param response
+     * @param pathName
+     * @param urlString
+     * @param pathResult
+     * @throws IOException
+     */
     private void dynamicValidateByResponse(CloseableHttpResponse response,String pathName,String urlString,Map<String,Object> pathResult) throws IOException {
         try {
 
