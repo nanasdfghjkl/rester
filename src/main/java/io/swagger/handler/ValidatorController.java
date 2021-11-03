@@ -177,6 +177,7 @@ public class ValidatorController{
     private Map<String,Integer> status=new HashMap<>();//状态码使用情况的统计
     private int[] statusUsage;//状态码使用情况（端点级别 是否使用各类状态码
     private Map<String,Map<String,Set<String>>> statusMap;//状态码集合
+    private Map<String,Map<String,Set<String>>> statusVisitedMap;//状态码集合
     private int dotCountInServer;//server中版本号的.数，用来判断是否语义版本号
     private int dotCountInPath;//path中版本号的.数，用来判断是否语义版本号
     private boolean semanticVersion=false;//是否使用语义版本号
@@ -196,6 +197,8 @@ public class ValidatorController{
     private int validResponseNum=0;//获得的有效响应数目（2字头）
     private boolean hasWrongStatus=false;//是否有HTTP协议定义外的状态码
     private boolean hasWrongPost=false;//是否有对POST方法的误用
+
+    private boolean fuzzingContinue=true;//变异继续标志
 
 //    @Value("${UUID}")
     private String uuid;
@@ -888,8 +891,7 @@ public class ValidatorController{
                             Request request=new Request(pathString,method,url,headers,pathParas,queryParas,entitystring);
                             dynamicValidateByURL(pathString,request,false,false);
                             //属性变异
-                            RequestGenerator rrg=new RequestGenerator(request);
-                            List<Request> randomRequests=rrg.requestGenerate();
+
                         }
                     }
 
@@ -1080,27 +1082,36 @@ public class ValidatorController{
                                         }
                                         Request request=new Request(serverURL,pathKey,method,headers,pathParas,queryParas,entitystring);
                                         request.buildURL();
+                                        //正常测试用例
                                         dynamicValidateByURL(pathKey,request,false,false);
                                         //开始变异
+                                        fuzzingContinue=true;
                                         RequestGenerator requestGenerator = new RequestGenerator(request);
                                         //属性变异(路径属性或查询属性不为空时进行）
                                         System.out.println("属性变异开始");
+
                                         if(!request.getQueryParameters().isEmpty() || !request.getPathParameters().isEmpty()) {
                                             //进行delete变异
                                             List<Request> fuzzingRequests = requestGenerator.paraFuzzingByRate("delete", 10, 80);
                                             for (Request re : fuzzingRequests) {
+                                                if(!fuzzingContinue) break;
                                                 dynamicValidateByURL(pathKey, re, false, false);
                                             }
+                                            if(!fuzzingContinue) continue;
                                             //进行type变异
                                             fuzzingRequests = requestGenerator.paraFuzzingByRate("type", 10, 80);
                                             for (Request re : fuzzingRequests) {
+                                                if(!fuzzingContinue) break;
                                                 dynamicValidateByURL(pathKey, re, false, false);
                                             }
+                                            if(!fuzzingContinue) continue;
                                             //进行format变异
                                             fuzzingRequests = requestGenerator.paraFuzzingByRate("format", 10, 80);
                                             for (Request re : fuzzingRequests) {
+                                                if(!fuzzingContinue) break;
                                                 dynamicValidateByURL(pathKey, re, false, false);
                                             }
+                                            if(!fuzzingContinue) continue;
                                         }
                                         System.out.println("属性变异结束");
                                         //头文件变异，只进行delete变异
@@ -1109,8 +1120,10 @@ public class ValidatorController{
                                             //进行delete变异
                                             List<Request> fuzzingRequests = requestGenerator.headerFuzzingByRate("delete", 10, 80);
                                             for (Request re : fuzzingRequests) {
+                                                if(!fuzzingContinue) break;
                                                 dynamicValidateByURL(pathKey, re, false, false);
                                             }
+                                            if(!fuzzingContinue) continue;
                                         }
                                         System.out.println("头文件变异结束");
                                         //消息体不为空的话，消息体变异
@@ -1118,10 +1131,12 @@ public class ValidatorController{
                                         if(entitystring!=""){
                                             List<Request> fuzzingRequests=requestGenerator.bodyFuzzing(entitystring,"delete",10);
                                             for (Request re : fuzzingRequests) {
+                                                if(!fuzzingContinue) break;
                                                 dynamicValidateByURL(pathKey, re, false, false);
                                             }
+                                            if(!fuzzingContinue) continue;
                                         }
-                                        System.out.println("消息体变异开始");
+                                        System.out.println("消息体变异结束");
                                     }
                                 }
 
@@ -4041,6 +4056,18 @@ public class ValidatorController{
             Header[] headers = response.getAllHeaders();//获取头文件
             HttpEntity entity = response.getEntity();//获取响应体
             pathResult.put("status",line.getStatusCode());
+            //将状态码加入已访问到状态码集合
+            statusVisitedMap.get(pathName).get(pathResult.get("method")).add(String.valueOf(line.getStatusCode()));
+            //计算是否继续fuzzing：
+            //响应状态码空间（对说明文档进行静态解析得到）A，已收集到状态码集合B
+            //A∩B=A  A-B=Φ：已实现对响应状态码空间的覆盖，可以停止变异
+            Set<String> result = new HashSet<>();
+            result.addAll(statusMap.get(pathName).get(pathResult.get("method")));
+            result.retainAll(statusVisitedMap.get(pathName).get(pathResult.get("method")));
+            if(result.isEmpty()){
+                fuzzingContinue=false;
+            }
+
             if (line.getStatusCode() > 299 || line.getStatusCode() < 200) {//成功状态
                 logger.info("status:"+line.getStatusCode()+",,"+EntityUtils.toString(entity));
                 return ;
